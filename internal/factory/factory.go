@@ -1,0 +1,70 @@
+package factory
+
+import (
+	"github.com/mcoot/crosswordgame-go2/internal/dependencies/clock"
+	"github.com/mcoot/crosswordgame-go2/internal/dependencies/random"
+	"github.com/mcoot/crosswordgame-go2/internal/services/board"
+	"github.com/mcoot/crosswordgame-go2/internal/services/dictionary"
+	"github.com/mcoot/crosswordgame-go2/internal/services/game"
+	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
+	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
+	"github.com/mcoot/crosswordgame-go2/internal/storage"
+	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
+)
+
+// App contains all wired application components
+type App struct {
+	// Storage
+	Storage storage.Storage
+
+	// External dependencies
+	Clock  clock.Clock
+	Random random.Random
+
+	// Services
+	DictionaryService *dictionary.Service
+	BoardService      *board.Service
+	ScoringService    *scoring.Service
+	GameController    *game.Controller
+	LobbyController   *lobby.Controller
+}
+
+// Config holds configuration for the application factory
+type Config struct {
+	// DictionaryPath is the path to the dictionary file (optional)
+	// If empty, dictionary must be loaded manually
+	DictionaryPath string
+}
+
+// New creates a new application with all dependencies wired
+func New(cfg Config) *App {
+	// Create storage
+	store := memory.New()
+
+	// Create external dependencies
+	clk := clock.New()
+	rnd := random.New()
+
+	return newWithDependencies(store, clk, rnd)
+}
+
+// newWithDependencies creates an App with the given dependencies (useful for testing)
+func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Random) *App {
+	// Create services
+	dictService := dictionary.New(store)
+	boardService := board.New(store)
+	scoringService := scoring.New(dictService)
+	gameController := game.NewController(store, boardService, scoringService, clk, rnd)
+	lobbyController := lobby.NewController(store, gameController, clk, rnd)
+
+	return &App{
+		Storage:           store,
+		Clock:             clk,
+		Random:            rnd,
+		DictionaryService: dictService,
+		BoardService:      boardService,
+		ScoringService:    scoringService,
+		GameController:    gameController,
+		LobbyController:   lobbyController,
+	}
+}

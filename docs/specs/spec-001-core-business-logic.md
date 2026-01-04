@@ -1,7 +1,7 @@
 ---
 spec_id: "spec-001"
 spec_name: "Core Business Logic Architecture"
-status: "PROPOSED"
+status: "ACTIVE"
 ---
 # spec-001 - Core Business Logic Architecture
 
@@ -769,4 +769,21 @@ graph TB
 
 ## Status details
 
-Status: PROPOSED - Awaiting architect review and approval before implementation begins.
+Status: ACTIVE - All tasks complete.
+
+### Completed:
+- [x] Task 1: Core models (`internal/model/`)
+- [x] Task 2: Storage interface + memory implementation (with tests)
+- [x] Task 3: DictionaryService (with tests)
+- [x] Task 4: BoardService (with tests)
+- [x] Task 5: ScoringService (with tests)
+- [x] Task 6: External dependencies (clock, random, mocks)
+- [x] Task 7: GameController (with tests)
+- [x] Task 8: LobbyController (with tests)
+- [x] Task 9: Factory wiring
+- [x] Task 10: Integration tests
+
+### Test Summary:
+- 7 test suites, all passing
+- Unit tests: storage (13), dictionary (10), board (17), scoring (15), game (28), lobby (29)
+- Integration tests: 7 full-flow scenarios
