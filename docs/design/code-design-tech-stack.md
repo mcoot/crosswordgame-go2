@@ -17,6 +17,7 @@ We do not need to list every small library here.
 ## Core tech stack choices
 
 - The game is written in Golang, using the most recent available version (at time of writing, 1.25)
+- We use `taskfile` for defining build tasks
 - In specs we use Mermaid diagrams when diagramming
 - We use `testify` for testing. We do NOT use a specific mocking library, we will use interfaces instead.
 - The game is exposed ultimately as an HTTP server
