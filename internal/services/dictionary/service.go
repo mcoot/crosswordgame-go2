@@ -38,12 +38,16 @@ func (s *Service) LoadFromStorage(ctx context.Context) error {
 }
 
 // LoadFromFile loads dictionary words from a file (one word per line)
-func (s *Service) LoadFromFile(ctx context.Context, path string) error {
+func (s *Service) LoadFromFile(ctx context.Context, path string) (err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
+	}()
 
 	var words []string
 	scanner := bufio.NewScanner(file)

@@ -1,0 +1,65 @@
+version: '3'
+
+vars:
+  GOLANGCI_LINT: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+
+tasks:
+  default:
+    desc: Run all checks (test + lint)
+    cmds:
+      - task: test
+      - task: lint
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./... {{.CLI_ARGS}}
+
+  test:verbose:
+    desc: Run all tests with verbose output
+    cmds:
+      - go test -v ./... {{.CLI_ARGS}}
+
+  test:coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Coverage report written to coverage.html"
+
+  lint:
+    desc: Run linter
+    cmds:
+      - "{{.GOLANGCI_LINT}} run ./..."
+
+  lint:fix:
+    desc: Run linter and fix issues where possible
+    cmds:
+      - "{{.GOLANGCI_LINT}} run --fix ./..."
+
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
+  fmt:check:
+    desc: Check if code is formatted
+    cmds:
+      - test -z "$(gofmt -l .)"
+
+  build:
+    desc: Build the application
+    cmds:
+      - go build ./...
+
+  tidy:
+    desc: Tidy go modules
+    cmds:
+      - go mod tidy
+
+  check:
+    desc: Run all CI checks (fmt, lint, test)
+    cmds:
+      - task: fmt:check
+      - task: lint
+      - task: test

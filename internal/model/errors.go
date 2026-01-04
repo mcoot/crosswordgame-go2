@@ -8,13 +8,13 @@ var (
 	ErrPlayerNotFound = errors.New("player not found")
 
 	// Lobby errors
-	ErrLobbyNotFound      = errors.New("lobby not found")
-	ErrLobbyFull          = errors.New("lobby is full")
-	ErrAlreadyInLobby     = errors.New("player is already in lobby")
-	ErrNotInLobby         = errors.New("player is not in lobby")
-	ErrNotHost            = errors.New("player is not the host")
-	ErrGameInProgress     = errors.New("game is in progress")
-	ErrNoGameInProgress   = errors.New("no game in progress")
+	ErrLobbyNotFound       = errors.New("lobby not found")
+	ErrLobbyFull           = errors.New("lobby is full")
+	ErrAlreadyInLobby      = errors.New("player is already in lobby")
+	ErrNotInLobby          = errors.New("player is not in lobby")
+	ErrNotHost             = errors.New("player is not the host")
+	ErrGameInProgress      = errors.New("game is in progress")
+	ErrNoGameInProgress    = errors.New("no game in progress")
 	ErrInsufficientPlayers = errors.New("insufficient players to start game")
 
 	// Game errors

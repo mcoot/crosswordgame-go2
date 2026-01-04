@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
 )
 
 type ServiceSuite struct {

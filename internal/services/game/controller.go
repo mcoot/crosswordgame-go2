@@ -14,11 +14,11 @@ import (
 
 // Controller manages game state machine and turn flow
 type Controller struct {
-	storage       storage.Storage
-	boardService  *board.Service
+	storage        storage.Storage
+	boardService   *board.Service
 	scoringService *scoring.Service
-	clock         clock.Clock
-	random        random.Random
+	clock          clock.Clock
+	random         random.Random
 }
 
 // NewController creates a new GameController
@@ -30,11 +30,11 @@ func NewController(
 	random random.Random,
 ) *Controller {
 	return &Controller{
-		storage:       storage,
-		boardService:  boardService,
+		storage:        storage,
+		boardService:   boardService,
 		scoringService: scoringService,
-		clock:         clock,
-		random:        random,
+		clock:          clock,
+		random:         random,
 	}
 }
 

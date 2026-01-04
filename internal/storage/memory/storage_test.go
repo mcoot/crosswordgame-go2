@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mcoot/crosswordgame-go2/internal/model"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/mcoot/crosswordgame-go2/internal/model"
 )
 
 type StorageSuite struct {
