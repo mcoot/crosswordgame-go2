@@ -109,10 +109,37 @@ func (h *Hub) ClientCount() int {
 }
 
 // formatSSEMessage formats an SSE message with event name and data
+// Multi-line data is properly formatted with "data: " prefix on each line
 func formatSSEMessage(eventName, data string) []byte {
 	msg := "event: " + eventName + "\n"
-	msg += "data: " + data + "\n\n"
+	// SSE requires each line of data to be prefixed with "data: "
+	lines := splitLines(data)
+	for _, line := range lines {
+		msg += "data: " + line + "\n"
+	}
+	msg += "\n"
 	return []byte(msg)
+}
+
+// splitLines splits a string into lines, handling various line endings
+func splitLines(s string) []string {
+	var lines []string
+	var current string
+	for _, r := range s {
+		if r == '\n' {
+			lines = append(lines, current)
+			current = ""
+		} else if r != '\r' {
+			current += string(r)
+		}
+	}
+	if current != "" {
+		lines = append(lines, current)
+	}
+	if len(lines) == 0 {
+		lines = append(lines, "")
+	}
+	return lines
 }
 
 // HubManager manages hubs for all lobbies

@@ -478,8 +478,10 @@ Status: ACTIVE - Implementation complete. Server can be run with `task run`.
    - Game status component
    - Start game, announce, place, abandon handlers
 
-7. Connect game page to SSE - DONE (basic)
+7. Connect game page to SSE - DONE
    - SSE connection in game template
+   - Created `sse/broadcaster.go` with high-level broadcast methods
+   - Game handler broadcasts: game started, letter announced, placement updates, turn complete, game complete
 
 8. Add static assets and styling - DONE
    - CSS for layout, navigation, cards, forms
@@ -491,10 +493,34 @@ Status: ACTIVE - Implementation complete. Server can be run with `task run`.
    - Added `task run` command to Taskfile
    - Web router mounted alongside API router
    - All existing tests pass
+   - SSE broadcasting wired up to lobby and game handlers
 
-**Known limitations:**
-- SSE connections are established but event broadcasting from lobby/game actions is not yet wired up to the hub. Players need to refresh to see updates from other players.
-- This would require adding event subscription hooks in the lobby and game controllers to broadcast to the SSE hub.
+**SSE Event System Architecture:**
+
+The SSE system uses two strategies based on event complexity:
+
+1. **Page refresh events** (handled by client-side JS in `base.templ`):
+   - `letter-announced` - Player state varies (isAnnouncer, hasPlaced), so reload to get personalized view
+   - `turn-complete` - New turn requires full state refresh
+   - `game-complete` - Show final scores
+   - `game-started` - Redirect to game page
+   - `refresh` - Generic page reload
+
+2. **OOB swap events** (targeted DOM updates without refresh):
+   - `member-update` - Updates `#member-list` with new member list HTML
+   - `placement-update` - Updates `#placement-status` with "X/Y players have placed"
+   - `controls-update` - Updates `#lobby-controls` for host
+
+**Why this design:**
+- Complex state changes (letter announced, turn complete) require personalized rendering per player
+- Simple updates (member list, placement count) are the same for all players
+- Client-side JS handles navigation/reload, avoiding fragile inline `<script>` tags in SSE data
+
+**Implementation files:**
+- `internal/web/templates/layout/base.templ` - SSEEventHandlers() JS for refresh/redirect
+- `internal/web/sse/broadcaster.go` - High-level broadcast methods
+- `internal/web/sse/hub.go` - SSE connection management and message formatting
+- `internal/web/sse/*_test.go` - Unit tests for hub and broadcaster
 
 **To run the server:**
 ```bash

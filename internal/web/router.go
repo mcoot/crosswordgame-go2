@@ -45,7 +45,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	homeHandler := handler.NewHomeHandler()
 	authHandler := handler.NewAuthHandler(cfg.AuthService)
 	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.AuthService, hubManager)
-	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService)
+	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, hubManager)
 
 	// Static files
 	if cfg.StaticDir != "" {

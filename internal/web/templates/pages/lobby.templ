@@ -17,6 +17,12 @@ type LobbyData struct {
 templ Lobby(data LobbyData) {
 	@layout.Base(data.PageData) {
 		<div class="lobby-page" hx-ext="sse" sse-connect={ "/lobby/" + string(data.Lobby.Code) + "/events" }>
+			<!-- SSE OOB swap triggers - hidden elements that receive OOB swapped content -->
+			<div sse-swap="member-update" hx-swap="none" style="display:none;"></div>
+			<div sse-swap="controls-update" hx-swap="none" style="display:none;"></div>
+			<!-- SSE event triggers - these trigger page fetches when events arrive -->
+			<div hx-get={ "/lobby/" + string(data.Lobby.Code) + "/game" } hx-trigger="sse:game-started" hx-target="body" hx-swap="innerHTML" hx-push-url="true" style="display:none;"></div>
+			<div hx-get={ "/lobby/" + string(data.Lobby.Code) } hx-trigger="sse:refresh" hx-target="body" hx-swap="innerHTML" style="display:none;"></div>
 			<div class="lobby-main">
 				<div class="lobby-header">
 					<div>

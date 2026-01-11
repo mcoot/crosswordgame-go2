@@ -21,6 +21,7 @@ type LobbyHandler struct {
 	lobbyController *lobby.Controller
 	authService     *auth.Service
 	hubManager      *sse.HubManager
+	broadcaster     *sse.Broadcaster
 }
 
 // NewLobbyHandler creates a new LobbyHandler
@@ -29,6 +30,7 @@ func NewLobbyHandler(lobbyController *lobby.Controller, authService *auth.Servic
 		lobbyController: lobbyController,
 		authService:     authService,
 		hubManager:      hubManager,
+		broadcaster:     sse.NewBroadcaster(hubManager),
 	}
 }
 
@@ -91,11 +93,18 @@ func (h *LobbyHandler) JoinByForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.lobbyController.JoinLobby(r.Context(), model.LobbyCode(code), *player)
+	lobbyCode := model.LobbyCode(code)
+	err := h.lobbyController.JoinLobby(r.Context(), lobbyCode, *player)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not join lobby: "+err.Error())
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
+	}
+
+	// Broadcast member list update to existing clients
+	lob, _ := h.lobbyController.GetLobby(r.Context(), lobbyCode)
+	if lob != nil {
+		h.broadcaster.BroadcastMemberListUpdate(r.Context(), lob)
 	}
 
 	middleware.SetFlash(w, "success", "Joined lobby!")
@@ -137,6 +146,9 @@ func (h *LobbyHandler) View(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		member = lob.GetMember(player.ID)
+
+		// Broadcast member list update
+		h.broadcaster.BroadcastMemberListUpdate(r.Context(), lob)
 	}
 
 	flash := middleware.GetFlash(r.Context())
@@ -180,6 +192,12 @@ func (h *LobbyHandler) Leave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast member list update to remaining clients
+	lob, _ := h.lobbyController.GetLobby(r.Context(), code)
+	if lob != nil {
+		h.broadcaster.BroadcastMemberListUpdate(r.Context(), lob)
+	}
+
 	middleware.SetFlash(w, "info", "You left the lobby")
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -213,6 +231,8 @@ func (h *LobbyHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		middleware.SetFlash(w, "error", "Could not update config: "+err.Error())
 	} else {
 		middleware.SetFlash(w, "success", "Settings updated")
+		// Broadcast refresh so other clients see updated config
+		h.broadcaster.BroadcastRefresh(code)
 	}
 
 	// For HTMX requests, just return 204
@@ -255,11 +275,15 @@ func (h *LobbyHandler) SetRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Note: SetRole doesn't verify host, but the caller should be host
-	// We could add host verification here if needed
 	err := h.lobbyController.SetRole(r.Context(), code, targetPlayerID, role)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not change role: "+err.Error())
+	} else {
+		// Broadcast member list update
+		lob, _ := h.lobbyController.GetLobby(r.Context(), code)
+		if lob != nil {
+			h.broadcaster.BroadcastMemberListUpdate(r.Context(), lob)
+		}
 	}
 
 	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
@@ -288,6 +312,8 @@ func (h *LobbyHandler) TransferHost(w http.ResponseWriter, r *http.Request) {
 		middleware.SetFlash(w, "error", "Could not transfer host: "+err.Error())
 	} else {
 		middleware.SetFlash(w, "success", "Host transferred")
+		// Broadcast refresh so all clients see updated host
+		h.broadcaster.BroadcastRefresh(code)
 	}
 
 	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)

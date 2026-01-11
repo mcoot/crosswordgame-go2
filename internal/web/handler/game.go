@@ -12,6 +12,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
 	"github.com/mcoot/crosswordgame-go2/internal/web/middleware"
+	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
 	"github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
 	"github.com/mcoot/crosswordgame-go2/internal/web/templates/pages"
 )
@@ -21,14 +22,18 @@ type GameHandler struct {
 	lobbyController *lobby.Controller
 	gameController  *game.Controller
 	boardService    *board.Service
+	hubManager      *sse.HubManager
+	broadcaster     *sse.Broadcaster
 }
 
 // NewGameHandler creates a new GameHandler
-func NewGameHandler(lobbyController *lobby.Controller, gameController *game.Controller, boardService *board.Service) *GameHandler {
+func NewGameHandler(lobbyController *lobby.Controller, gameController *game.Controller, boardService *board.Service, hubManager *sse.HubManager) *GameHandler {
 	return &GameHandler{
 		lobbyController: lobbyController,
 		gameController:  gameController,
 		boardService:    boardService,
+		hubManager:      hubManager,
+		broadcaster:     sse.NewBroadcaster(hubManager),
 	}
 }
 
@@ -140,6 +145,9 @@ func (h *GameHandler) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast game started to all lobby clients
+	h.broadcaster.BroadcastGameStarted(code)
+
 	http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
 }
 
@@ -179,6 +187,12 @@ func (h *GameHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	err = h.gameController.AnnounceLetter(r.Context(), *lob.CurrentGame, player.ID, letter)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not announce letter: "+err.Error())
+	} else {
+		// Broadcast letter announced to all game clients
+		g, _ := h.gameController.GetGame(r.Context(), *lob.CurrentGame)
+		if g != nil {
+			h.broadcaster.BroadcastLetterAnnounced(r.Context(), g, code)
+		}
 	}
 
 	http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
@@ -227,6 +241,20 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 	err = h.gameController.PlaceLetter(r.Context(), *lob.CurrentGame, player.ID, pos)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not place letter: "+err.Error())
+	} else {
+		// Broadcast placement update
+		g, _ := h.gameController.GetGame(r.Context(), *lob.CurrentGame)
+		if g != nil {
+			h.broadcaster.BroadcastPlacementUpdate(r.Context(), g, code, player.ID)
+
+			// Check if game is complete
+			if g.State == model.GameStateScoring {
+				h.broadcaster.BroadcastGameComplete(code)
+			} else if g.State == model.GameStateAnnouncing {
+				// All placed, new turn started - tell clients to refresh
+				h.broadcaster.BroadcastTurnComplete(r.Context(), g, code)
+			}
+		}
 	}
 
 	http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
@@ -248,6 +276,8 @@ func (h *GameHandler) Abandon(w http.ResponseWriter, r *http.Request) {
 		middleware.SetFlash(w, "error", "Could not abandon game: "+err.Error())
 	} else {
 		middleware.SetFlash(w, "info", "Game abandoned")
+		// Broadcast game-abandoned so all clients go back to lobby
+		h.broadcaster.BroadcastGameAbandoned(code)
 	}
 
 	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)

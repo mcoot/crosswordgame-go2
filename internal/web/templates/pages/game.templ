@@ -20,6 +20,15 @@ type GameData struct {
 templ Game(data GameData) {
 	@layout.Base(data.PageData) {
 		<div class="game-page" hx-ext="sse" sse-connect={ "/lobby/" + string(data.Lobby.Code) + "/events" }>
+			<!-- SSE OOB swap triggers - hidden elements that receive OOB swapped content -->
+			<div sse-swap="placement-update" hx-swap="none" style="display:none;"></div>
+			<div sse-swap="game-update" hx-swap="none" style="display:none;"></div>
+			<!-- SSE event triggers - these trigger page fetches when events arrive -->
+			<div hx-get={ "/lobby/" + string(data.Lobby.Code) + "/game" } hx-trigger="sse:letter-announced" hx-target="body" hx-swap="innerHTML" style="display:none;"></div>
+			<div hx-get={ "/lobby/" + string(data.Lobby.Code) + "/game" } hx-trigger="sse:turn-complete" hx-target="body" hx-swap="innerHTML" style="display:none;"></div>
+			<div hx-get={ "/lobby/" + string(data.Lobby.Code) + "/game" } hx-trigger="sse:game-complete" hx-target="body" hx-swap="innerHTML" style="display:none;"></div>
+			<div hx-get={ "/lobby/" + string(data.Lobby.Code) } hx-trigger="sse:game-abandoned" hx-target="body" hx-swap="innerHTML" hx-push-url="true" style="display:none;"></div>
+			<div hx-get={ "/lobby/" + string(data.Lobby.Code) + "/game" } hx-trigger="sse:refresh" hx-target="body" hx-swap="innerHTML" style="display:none;"></div>
 			<div class="game-main">
 				<div id="game-status">
 					@components.GameStatus(data.Game, data.IsAnnouncer, data.HasPlaced)
@@ -35,6 +44,11 @@ templ Game(data GameData) {
 					<div id="game-board">
 						@components.GameBoard(data.Lobby.Code, data.MyBoard, data.Game, data.HasPlaced)
 					</div>
+					if data.Game.State == model.GameStatePlacing {
+						<div id="placement-status" class="text-muted">
+							{ placementStatusText(data.Game) }
+						</div>
+					}
 				}
 
 				if data.Game.State == model.GameStateScoring {
@@ -91,4 +105,15 @@ func intToStr(n int) string {
 		n /= 10
 	}
 	return digits
+}
+
+func placementStatusText(game *model.Game) string {
+	placedCount := 0
+	for _, placed := range game.Placements {
+		if placed {
+			placedCount++
+		}
+	}
+	totalPlayers := len(game.Players)
+	return intToStr(placedCount) + "/" + intToStr(totalPlayers) + " players have placed"
 }
