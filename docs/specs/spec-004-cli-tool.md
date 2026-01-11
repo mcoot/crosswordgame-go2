@@ -1,7 +1,7 @@
 ---
 spec_id: "spec-004"
 spec_name: "CLI Tool for API Interaction"
-status: "PROPOSED"
+status: "ACTIVE"
 ---
 # spec-004 - CLI Tool for API Interaction
 
@@ -253,4 +253,13 @@ With `--json`:
 
 ## Status Details
 
-Status: PROPOSED - Awaiting approval before implementation.
+Status: ACTIVE - All tasks completed:
+1. CLI skeleton - Root command with global flags, config management
+2. HTTP client - Request/response handling with token injection
+3. Output formatting - Text and JSON formatters
+4. Player commands - guest, register, login, me with auto token save
+5. Lobby commands - create, get, join, leave, config
+6. Game commands - start, get, announce, place, abandon
+7. SSE streaming - Real-time event streaming with JSON lines option
+8. Health command - Simple health check
+9. Taskfile entries - cli:build, cli:run, cli:install
