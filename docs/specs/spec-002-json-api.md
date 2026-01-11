@@ -1,7 +1,7 @@
 ---
 spec_id: "spec-002"
 spec_name: "JSON API Layer"
-status: "PROPOSED"
+status: "DONE"
 ---
 # spec-002 - JSON API Layer
 
@@ -583,4 +583,11 @@ func (h *LobbyHandler) CreateLobby(w http.ResponseWriter, r *http.Request) {
 
 ## Status details
 
-Status: PROPOSED - Awaiting architect review.
+Status: DONE - All tasks completed:
+1. AuthService - Complete with session management and password hashing
+2. Request/Response types - DTOs for all endpoints with model conversion functions
+3. Error handling - Centralized error handling with model and auth error mapping
+4. Middleware - Auth, logging, and recovery middleware
+5. Handlers - Player, lobby, and game handlers
+6. Router and server - Full route registration with gorilla/mux
+7. Integration tests - 10 API tests covering full game flow
