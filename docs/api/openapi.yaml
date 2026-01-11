@@ -1,0 +1,752 @@
+openapi: 3.1.0
+info:
+  title: Crossword Game API
+  description: JSON API for the multiplayer crossword game
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+tags:
+  - name: Players
+    description: Player identity and authentication
+  - name: Lobbies
+    description: Lobby management
+  - name: Game
+    description: Game actions
+
+paths:
+  /players/guest:
+    post:
+      tags: [Players]
+      summary: Create guest player
+      description: Creates an anonymous player session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGuestRequest'
+      responses:
+        '201':
+          description: Guest player created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /players/register:
+    post:
+      tags: [Players]
+      summary: Register player
+      description: Creates a registered player account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Player registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Username already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /players/login:
+    post:
+      tags: [Players]
+      summary: Login
+      description: Authenticates a registered player
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /players/me:
+    get:
+      tags: [Players]
+      summary: Get current player
+      description: Returns the authenticated player's information
+      responses:
+        '200':
+          description: Player info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /lobbies:
+    post:
+      tags: [Lobbies]
+      summary: Create lobby
+      description: Creates a new lobby with the authenticated player as host
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLobbyRequest'
+      responses:
+        '201':
+          description: Lobby created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lobby'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /lobbies/{code}:
+    parameters:
+      - $ref: '#/components/parameters/LobbyCode'
+    get:
+      tags: [Lobbies]
+      summary: Get lobby
+      description: Returns lobby state
+      responses:
+        '200':
+          description: Lobby state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lobby'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lobbies/{code}/join:
+    parameters:
+      - $ref: '#/components/parameters/LobbyCode'
+    post:
+      tags: [Lobbies]
+      summary: Join lobby
+      description: Joins an existing lobby
+      responses:
+        '200':
+          description: Joined lobby
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lobby'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Already in lobby
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /lobbies/{code}/leave:
+    parameters:
+      - $ref: '#/components/parameters/LobbyCode'
+    post:
+      tags: [Lobbies]
+      summary: Leave lobby
+      description: Leaves the lobby
+      responses:
+        '204':
+          description: Left lobby
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lobbies/{code}/config:
+    parameters:
+      - $ref: '#/components/parameters/LobbyCode'
+    patch:
+      tags: [Lobbies]
+      summary: Update lobby config
+      description: Updates lobby configuration (host only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LobbyConfig'
+      responses:
+        '200':
+          description: Config updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LobbyConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Game in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /lobbies/{code}/members/{playerId}/role:
+    parameters:
+      - $ref: '#/components/parameters/LobbyCode'
+      - name: playerId
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Lobbies]
+      summary: Set member role
+      description: Changes a member's role (host only, not during game)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRoleRequest'
+      responses:
+        '204':
+          description: Role updated
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Game in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /lobbies/{code}/transfer-host:
+    parameters:
+      - $ref: '#/components/parameters/LobbyCode'
+    post:
+      tags: [Lobbies]
+      summary: Transfer host
+      description: Transfers host role to another member (host only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferHostRequest'
+      responses:
+        '204':
+          description: Host transferred
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lobbies/{code}/game:
+    parameters:
+      - $ref: '#/components/parameters/LobbyCode'
+    post:
+      tags: [Game]
+      summary: Start game
+      description: Starts a new game with current players (host only)
+      responses:
+        '201':
+          description: Game started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameState'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Game already in progress or no players
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [Game]
+      summary: Get game state
+      description: Returns current game state
+      responses:
+        '200':
+          description: Game state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameState'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Game]
+      summary: Abandon game
+      description: Abandons the current game (host only)
+      responses:
+        '204':
+          description: Game abandoned
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lobbies/{code}/game/announce:
+    parameters:
+      - $ref: '#/components/parameters/LobbyCode'
+    post:
+      tags: [Game]
+      summary: Announce letter
+      description: Announces a letter for the current turn (announcer only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnounceRequest'
+      responses:
+        '200':
+          description: Letter announced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnounceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not your turn to announce
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lobbies/{code}/game/place:
+    parameters:
+      - $ref: '#/components/parameters/LobbyCode'
+    post:
+      tags: [Game]
+      summary: Place letter
+      description: Places the announced letter on the player's board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceRequest'
+      responses:
+        '200':
+          description: Letter placed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Already placed this turn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cell occupied or no letter announced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session
+
+  parameters:
+    LobbyCode:
+      name: code
+      in: path
+      required: true
+      description: Lobby code
+      schema:
+        type: string
+        pattern: '^[A-Z0-9]{6}$'
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: LOBBY_NOT_FOUND
+            message:
+              type: string
+              example: Lobby with code 'XYZ999' not found
+
+    Player:
+      type: object
+      required: [id, display_name, is_guest]
+      properties:
+        id:
+          type: string
+          example: p_abc123
+        display_name:
+          type: string
+          example: Alice
+        is_guest:
+          type: boolean
+
+    CreateGuestRequest:
+      type: object
+      required: [display_name]
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 32
+
+    RegisterRequest:
+      type: object
+      required: [username, password, display_name]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+        password:
+          type: string
+          minLength: 8
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 32
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [player, session_token]
+      properties:
+        player:
+          $ref: '#/components/schemas/Player'
+        session_token:
+          type: string
+          example: sess_xyz789
+
+    LobbyConfig:
+      type: object
+      properties:
+        grid_size:
+          type: integer
+          minimum: 2
+          maximum: 10
+          default: 5
+
+    LobbyMember:
+      type: object
+      required: [player_id, display_name, role, is_host]
+      properties:
+        player_id:
+          type: string
+        display_name:
+          type: string
+        role:
+          type: string
+          enum: [player, spectator]
+        is_host:
+          type: boolean
+
+    GameSummary:
+      type: object
+      required: [id, final_scores, completed_at]
+      properties:
+        id:
+          type: string
+        final_scores:
+          type: object
+          additionalProperties:
+            type: integer
+        winner:
+          type: string
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+
+    Lobby:
+      type: object
+      required: [code, state, config, members]
+      properties:
+        code:
+          type: string
+          example: ABC123
+        state:
+          type: string
+          enum: [waiting, in_game]
+        config:
+          $ref: '#/components/schemas/LobbyConfig'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/LobbyMember'
+        current_game:
+          type: string
+          nullable: true
+        game_history:
+          type: array
+          items:
+            $ref: '#/components/schemas/GameSummary'
+
+    CreateLobbyRequest:
+      type: object
+      properties:
+        grid_size:
+          type: integer
+          minimum: 2
+          maximum: 10
+          default: 5
+
+    SetRoleRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [player, spectator]
+
+    TransferHostRequest:
+      type: object
+      required: [new_host_id]
+      properties:
+        new_host_id:
+          type: string
+
+    Board:
+      type: object
+      required: [cells]
+      properties:
+        cells:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+              nullable: true
+              maxLength: 1
+
+    WordMatch:
+      type: object
+      required: [word, score, row, col, horizontal]
+      properties:
+        word:
+          type: string
+        score:
+          type: integer
+        row:
+          type: integer
+        col:
+          type: integer
+        horizontal:
+          type: boolean
+
+    BoardScore:
+      type: object
+      required: [player_id, total_score, words]
+      properties:
+        player_id:
+          type: string
+        total_score:
+          type: integer
+        words:
+          type: array
+          items:
+            $ref: '#/components/schemas/WordMatch'
+
+    GameState:
+      type: object
+      required: [id, state, grid_size, players, current_turn]
+      properties:
+        id:
+          type: string
+        state:
+          type: string
+          enum: [announcing, placing, scoring, abandoned]
+        grid_size:
+          type: integer
+        players:
+          type: array
+          items:
+            type: string
+        current_turn:
+          type: integer
+        current_announcer:
+          type: string
+        current_letter:
+          type: string
+          nullable: true
+          maxLength: 1
+        placements:
+          type: object
+          additionalProperties:
+            type: boolean
+        my_board:
+          $ref: '#/components/schemas/Board'
+        all_boards:
+          type: object
+          nullable: true
+          additionalProperties:
+            $ref: '#/components/schemas/Board'
+        scores:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/BoardScore'
+        winner:
+          type: string
+          nullable: true
+
+    AnnounceRequest:
+      type: object
+      required: [letter]
+      properties:
+        letter:
+          type: string
+          minLength: 1
+          maxLength: 1
+          pattern: '^[A-Za-z]$'
+
+    AnnounceResponse:
+      type: object
+      required: [state, current_letter]
+      properties:
+        state:
+          type: string
+          enum: [placing]
+        current_letter:
+          type: string
+
+    PlaceRequest:
+      type: object
+      required: [row, col]
+      properties:
+        row:
+          type: integer
+          minimum: 0
+        col:
+          type: integer
+          minimum: 0
+
+    PlaceResponse:
+      type: object
+      required: [placed, board, turn_complete]
+      properties:
+        placed:
+          type: boolean
+        board:
+          $ref: '#/components/schemas/Board'
+        turn_complete:
+          type: boolean
+        game_complete:
+          type: boolean
+        next_announcer:
+          type: string
+        scores:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoardScore'
+        winner:
+          type: string
+          nullable: true
