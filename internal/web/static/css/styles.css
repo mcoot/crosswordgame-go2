@@ -442,6 +442,8 @@ select.input {
   margin: 0 auto;
 }
 
+.board.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.board.grid-3 { grid-template-columns: repeat(3, 1fr); }
 .board.grid-4 { grid-template-columns: repeat(4, 1fr); }
 .board.grid-5 { grid-template-columns: repeat(5, 1fr); }
 .board.grid-6 { grid-template-columns: repeat(6, 1fr); }
