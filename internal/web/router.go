@@ -31,9 +31,15 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	r := mux.NewRouter()
 
 	// Create middleware
+	loggingMiddleware := middleware.Logging(cfg.Logger)
+	recoveryMiddleware := middleware.Recovery(cfg.Logger)
 	flashMiddleware := middleware.Flash()
 	authMiddleware := middleware.Auth(cfg.AuthService)
 	optionalAuthMiddleware := middleware.OptionalAuth(cfg.AuthService)
+
+	// Apply global middleware to all routes
+	r.Use(recoveryMiddleware)
+	r.Use(loggingMiddleware)
 
 	// Create SSE hub manager if not provided
 	hubManager := cfg.HubManager

@@ -3,29 +3,17 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
-	"runtime/debug"
 
 	"github.com/mcoot/crosswordgame-go2/internal/api/apierr"
+	"github.com/mcoot/crosswordgame-go2/internal/middleware"
 )
 
-// Recovery creates panic recovery middleware
+// Recovery creates panic recovery middleware for the API
+// Returns JSON error responses on panic
 func Recovery(logger *slog.Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer func() {
-				if err := recover(); err != nil {
-					logger.Error("panic recovered",
-						slog.Any("error", err),
-						slog.String("stack", string(debug.Stack())),
-						slog.String("method", r.Method),
-						slog.String("path", r.URL.Path),
-					)
+	return middleware.Recovery(logger, apiPanicHandler)
+}
 
-					apierr.WriteError(w, apierr.NewInternalError())
-				}
-			}()
-
-			next.ServeHTTP(w, r)
-		})
-	}
+func apiPanicHandler(w http.ResponseWriter, _ *http.Request, _ any) {
+	apierr.WriteError(w, apierr.NewInternalError())
 }
