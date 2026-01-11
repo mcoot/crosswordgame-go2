@@ -8,9 +8,6 @@ import (
 )
 
 const (
-	// Time allowed to write a message to the peer
-	writeWait = 10 * time.Second
-
 	// Time between keepalive pings
 	pingPeriod = 30 * time.Second
 

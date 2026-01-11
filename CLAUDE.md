@@ -5,3 +5,5 @@
 - `./docs/specs` contains specs for implementation tasks, following the `./docs/specs/spe-000-template.md` template format and naming scheme
     - An agent should create a new spec when starting a major task. The spec can then be used for human architect approval, and for another agent to continue where one left off.
     - Agents should refer to active and in progress specs when needed to understand prior changes or parts of the architecture
+- Always use `task` when trying to run standard commands like building, testing, linting etc.
+    - If we have a new feature which should be come a standard command, we should add it to the taskfile

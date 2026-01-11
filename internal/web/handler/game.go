@@ -248,9 +248,10 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 			h.broadcaster.BroadcastPlacementUpdate(r.Context(), g, code, player.ID)
 
 			// Check if game is complete
-			if g.State == model.GameStateScoring {
+			switch g.State {
+			case model.GameStateScoring:
 				h.broadcaster.BroadcastGameComplete(code)
-			} else if g.State == model.GameStateAnnouncing {
+			case model.GameStateAnnouncing:
 				// All placed, new turn started - tell clients to refresh
 				h.broadcaster.BroadcastTurnComplete(r.Context(), g, code)
 			}

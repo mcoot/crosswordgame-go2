@@ -62,11 +62,9 @@ func (h *LobbyHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update config with grid size
+	// Update config with grid size (non-fatal if it fails, continue with default config)
 	cfg := model.LobbyConfig{GridSize: gridSize}
-	if err := h.lobbyController.UpdateConfig(r.Context(), lob.Code, player.ID, cfg); err != nil {
-		// Non-fatal, continue with default config
-	}
+	_ = h.lobbyController.UpdateConfig(r.Context(), lob.Code, player.ID, cfg)
 
 	middleware.SetFlash(w, "success", "Lobby created!")
 	http.Redirect(w, r, "/lobby/"+string(lob.Code), http.StatusSeeOther)
