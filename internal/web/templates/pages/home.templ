@@ -1,6 +1,9 @@
 package pages
 
-import "github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
+import (
+	"github.com/mcoot/crosswordgame-go2/internal/web/templates/components"
+	"github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
+)
 
 type HomeData struct {
 	layout.PageData
@@ -37,14 +40,7 @@ templ Home(data HomeData) {
 							<form action="/lobby" method="post" class="form-stack">
 								<div class="form-group">
 									<label for="grid_size">Grid Size</label>
-									<select name="grid_size" id="grid_size" class="input">
-										<option value="5" selected>5x5 (Standard)</option>
-										<option value="4">4x4 (Quick)</option>
-										<option value="3">3x3 (Tiny)</option>
-										<option value="2">2x2 (Mini)</option>
-										<option value="6">6x6 (Extended)</option>
-										<option value="7">7x7 (Challenge)</option>
-									</select>
+									@components.GridSizeSelect(0)
 								</div>
 								<button type="submit" class="btn btn-primary">Create Lobby</button>
 							</form>

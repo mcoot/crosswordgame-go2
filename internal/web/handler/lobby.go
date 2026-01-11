@@ -50,7 +50,7 @@ func (h *LobbyHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	gridSize := 5 // default
 	if gs := r.FormValue("grid_size"); gs != "" {
-		if parsed, err := strconv.Atoi(gs); err == nil && parsed >= 4 && parsed <= 7 {
+		if parsed, err := strconv.Atoi(gs); err == nil && parsed >= 2 && parsed <= 7 {
 			gridSize = parsed
 		}
 	}
@@ -218,7 +218,7 @@ func (h *LobbyHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	gridSize := 5
 	if gs := r.FormValue("grid_size"); gs != "" {
-		if parsed, err := strconv.Atoi(gs); err == nil && parsed >= 4 && parsed <= 7 {
+		if parsed, err := strconv.Atoi(gs); err == nil && parsed >= 2 && parsed <= 7 {
 			gridSize = parsed
 		}
 	}

@@ -1,0 +1,14 @@
+package components
+
+// GridSizeSelect renders a grid size selector dropdown
+// selectedSize is the currently selected size (0 for default/none selected)
+templ GridSizeSelect(selectedSize int) {
+	<select name="grid_size" id="grid_size" class="input">
+		<option value="2" selected?={ selectedSize == 2 }>2x2 (Mini)</option>
+		<option value="3" selected?={ selectedSize == 3 }>3x3 (Tiny)</option>
+		<option value="4" selected?={ selectedSize == 4 }>4x4 (Quick)</option>
+		<option value="5" selected?={ selectedSize == 5 || selectedSize == 0 }>5x5 (Standard)</option>
+		<option value="6" selected?={ selectedSize == 6 }>6x6 (Extended)</option>
+		<option value="7" selected?={ selectedSize == 7 }>7x7 (Challenge)</option>
+	</select>
+}

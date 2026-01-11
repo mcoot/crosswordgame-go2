@@ -14,14 +14,7 @@ templ LobbyConfig(lobby *model.Lobby) {
 		>
 			<div class="form-group">
 				<label for="grid_size">Grid Size</label>
-				<select name="grid_size" id="grid_size" class="input">
-					<option value="2" selected?={ lobby.Config.GridSize == 2 }>2x2 (Mini)</option>
-					<option value="3" selected?={ lobby.Config.GridSize == 3 }>3x3 (Tiny)</option>
-					<option value="4" selected?={ lobby.Config.GridSize == 4 }>4x4 (Quick)</option>
-					<option value="5" selected?={ lobby.Config.GridSize == 5 }>5x5 (Standard)</option>
-					<option value="6" selected?={ lobby.Config.GridSize == 6 }>6x6 (Extended)</option>
-					<option value="7" selected?={ lobby.Config.GridSize == 7 }>7x7 (Challenge)</option>
-				</select>
+				@GridSizeSelect(lobby.Config.GridSize)
 			</div>
 			<button type="submit" class="btn btn-secondary">Update Settings</button>
 		</form>

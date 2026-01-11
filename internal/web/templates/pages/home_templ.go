@@ -8,7 +8,10 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
+import (
+	"github.com/mcoot/crosswordgame-go2/internal/web/templates/components"
+	"github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
+)
 
 type HomeData struct {
 	layout.PageData
@@ -57,12 +60,20 @@ func Home(data HomeData) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<section class=\"home-section\"><h2>Create or Join a Lobby</h2><div class=\"card-grid\"><div class=\"card\"><h3>Create New Lobby</h3><p>Start a new game lobby and invite others to join.</p><form action=\"/lobby\" method=\"post\" class=\"form-stack\"><div class=\"form-group\"><label for=\"grid_size\">Grid Size</label> <select name=\"grid_size\" id=\"grid_size\" class=\"input\"><option value=\"5\" selected>5x5 (Standard)</option> <option value=\"4\">4x4 (Quick)</option> <option value=\"3\">3x3 (Tiny)</option> <option value=\"2\">2x2 (Mini)</option> <option value=\"6\">6x6 (Extended)</option> <option value=\"7\">7x7 (Challenge)</option></select></div><button type=\"submit\" class=\"btn btn-primary\">Create Lobby</button></form></div><div class=\"card\"><h3>Join Existing Lobby</h3><p>Enter a lobby code to join an existing game.</p><form action=\"/lobby/join\" method=\"post\" class=\"form-stack\"><div class=\"form-group\"><label for=\"code\">Lobby Code</label> <input type=\"text\" name=\"code\" id=\"code\" placeholder=\"ABC123\" required maxlength=\"6\" class=\"input input-uppercase\"></div><button type=\"submit\" class=\"btn btn-secondary\">Join Lobby</button></form></div></div></section>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<section class=\"home-section\"><h2>Create or Join a Lobby</h2><div class=\"card-grid\"><div class=\"card\"><h3>Create New Lobby</h3><p>Start a new game lobby and invite others to join.</p><form action=\"/lobby\" method=\"post\" class=\"form-stack\"><div class=\"form-group\"><label for=\"grid_size\">Grid Size</label>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = components.GridSizeSelect(0).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div><button type=\"submit\" class=\"btn btn-primary\">Create Lobby</button></form></div><div class=\"card\"><h3>Join Existing Lobby</h3><p>Enter a lobby code to join an existing game.</p><form action=\"/lobby/join\" method=\"post\" class=\"form-stack\"><div class=\"form-group\"><label for=\"code\">Lobby Code</label> <input type=\"text\" name=\"code\" id=\"code\" placeholder=\"ABC123\" required maxlength=\"6\" class=\"input input-uppercase\"></div><button type=\"submit\" class=\"btn btn-secondary\">Join Lobby</button></form></div></div></section>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<section class=\"home-section\"><h2>How to Play</h2><ol class=\"rules-list\"><li>Join or create a lobby with friends</li><li>Players take turns announcing a letter</li><li>Everyone places the announced letter on their own grid</li><li>Once grids are full, words are scored horizontally and vertically</li><li>Longer words score more points - full rows/columns score double!</li></ol></section></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<section class=\"home-section\"><h2>How to Play</h2><ol class=\"rules-list\"><li>Join or create a lobby with friends</li><li>Players take turns announcing a letter</li><li>Everyone places the announced letter on their own grid</li><li>Once grids are full, words are scored horizontally and vertically</li><li>Longer words score more points - full rows/columns score double!</li></ol></section></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
