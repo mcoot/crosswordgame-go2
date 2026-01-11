@@ -1,0 +1,28 @@
+package components
+
+import "github.com/mcoot/crosswordgame-go2/internal/model"
+
+templ LobbyControls(lobby *model.Lobby) {
+	<div class="lobby-controls">
+		if countPlayers(lobby) > 0 {
+			<form
+				action={ templ.SafeURL("/lobby/" + string(lobby.Code) + "/game/start") }
+				method="post"
+			>
+				<button type="submit" class="btn btn-primary">Start Game</button>
+			</form>
+		} else {
+			<p class="text-muted">Need at least one player to start the game.</p>
+		}
+	</div>
+}
+
+func countPlayers(lobby *model.Lobby) int {
+	count := 0
+	for _, member := range lobby.Members {
+		if member.Role == model.RolePlayer {
+			count++
+		}
+	}
+	return count
+}

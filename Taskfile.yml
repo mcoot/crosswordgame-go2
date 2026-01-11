@@ -2,6 +2,7 @@ version: '3'
 
 vars:
   GOLANGCI_LINT: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+  TEMPL: go run github.com/a-h/templ/cmd/templ
 
 tasks:
   default:
@@ -9,6 +10,26 @@ tasks:
     cmds:
       - task: test
       - task: lint
+
+  generate:
+    desc: Generate all code (templ templates)
+    cmds:
+      - task: templ:generate
+
+  templ:generate:
+    desc: Generate Go code from templ templates
+    cmds:
+      - "{{.TEMPL}} generate"
+
+  templ:watch:
+    desc: Watch templ files and regenerate on change
+    cmds:
+      - "{{.TEMPL}} generate --watch"
+
+  templ:fmt:
+    desc: Format templ files
+    cmds:
+      - "{{.TEMPL}} fmt ."
 
   test:
     desc: Run all tests
@@ -50,7 +71,19 @@ tasks:
   build:
     desc: Build the application
     cmds:
+      - task: templ:generate
       - go build ./...
+
+  run:
+    desc: Run the server
+    deps: [templ:generate]
+    cmds:
+      - go run ./cmd/server
+
+  dev:
+    desc: Run the server with templ watch (requires two terminals or tmux)
+    cmds:
+      - echo "Run 'task templ:watch' in another terminal, then 'task run'"
 
   tidy:
     desc: Tidy go modules

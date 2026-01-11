@@ -1,0 +1,64 @@
+package layout
+
+import "github.com/mcoot/crosswordgame-go2/internal/model"
+
+// PageData contains common data passed to all pages
+type PageData struct {
+	Title   string
+	Player  *model.Player // nil if not authenticated
+	Flash   *FlashMessage
+}
+
+// FlashMessage represents a one-time notification
+type FlashMessage struct {
+	Type    string // "success", "error", "info"
+	Message string
+}
+
+templ Base(data PageData) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ data.Title } - Crossword Game</title>
+			<link rel="stylesheet" href="/static/css/styles.css"/>
+			<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/sse.js"></script>
+		</head>
+		<body>
+			@Nav(data.Player)
+			<main class="container">
+				if data.Flash != nil {
+					@Flash(data.Flash)
+				}
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+templ Nav(player *model.Player) {
+	<nav class="nav">
+		<div class="nav-brand">
+			<a href="/">Crossword Game</a>
+		</div>
+		<div class="nav-menu">
+			if player != nil {
+				<span class="nav-player">{ player.DisplayName }</span>
+				<form action="/auth/logout" method="post" class="nav-form">
+					<button type="submit" class="btn btn-link">Logout</button>
+				</form>
+			} else {
+				<a href="/login" class="btn btn-link">Login</a>
+				<a href="/register" class="btn btn-link">Register</a>
+			}
+		</div>
+	</nav>
+}
+
+templ Flash(flash *FlashMessage) {
+	<div class={ "flash", "flash-" + flash.Type }>
+		{ flash.Message }
+	</div>
+}

@@ -1,0 +1,54 @@
+package components
+
+import "github.com/mcoot/crosswordgame-go2/internal/model"
+
+// GameScoresData holds data for rendering scores
+// We need to pass this separately since Game doesn't contain BoardScores directly
+type GameScoresData struct {
+	Scores []model.BoardScore
+	Winner model.PlayerID
+}
+
+templ GameScores(game *model.Game) {
+	<div class="card">
+		<h3>Final Scores</h3>
+		<p class="text-muted">Scores will be displayed here after the game ends.</p>
+		// Note: Actual scores need to be passed from the handler
+		// This is a placeholder - the real implementation should render BoardScores
+	</div>
+}
+
+templ GameScoresWithData(data GameScoresData) {
+	<div class="scores">
+		for _, score := range data.Scores {
+			<div class={ "score-card", templ.KV("winner", score.PlayerID == data.Winner) }>
+				<div class="score-header">
+					<span class="player-name">{ string(score.PlayerID) }</span>
+					<span class="score-total">{ intToString(score.TotalScore) }</span>
+				</div>
+				if len(score.Words) > 0 {
+					<ul class="word-list">
+						for _, word := range score.Words {
+							<li>{ word.Word } ({ intToString(word.Score) } pts)</li>
+						}
+					</ul>
+				}
+			</div>
+		}
+	</div>
+}
+
+func intToString(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	if n < 0 {
+		return "-" + intToString(-n)
+	}
+	digits := ""
+	for n > 0 {
+		digits = string(rune('0'+n%10)) + digits
+		n /= 10
+	}
+	return digits
+}

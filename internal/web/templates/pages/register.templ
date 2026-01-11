@@ -1,0 +1,93 @@
+package pages
+
+import "github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
+
+type RegisterData struct {
+	layout.PageData
+	Username    string // Preserved on error
+	DisplayName string // Preserved on error
+	Error       string
+	FieldErrors map[string]string
+}
+
+templ Register(data RegisterData) {
+	@layout.Base(data.PageData) {
+		<div class="auth-page">
+			<div class="card">
+				<h1>Register</h1>
+				if data.Error != "" {
+					<div class="form-error">
+						{ data.Error }
+					</div>
+				}
+				<form action="/auth/register" method="post" class="form-stack">
+					<div class="form-group">
+						<label for="username">Username</label>
+						<input
+							type="text"
+							id="username"
+							name="username"
+							value={ data.Username }
+							required
+							autofocus
+							pattern="[a-zA-Z0-9_]+"
+							title="Letters, numbers, and underscores only"
+							minlength="3"
+							maxlength="20"
+							class="input"
+						/>
+						if data.FieldErrors["username"] != "" {
+							<span class="field-error">{ data.FieldErrors["username"] }</span>
+						}
+					</div>
+					<div class="form-group">
+						<label for="display_name">Display Name</label>
+						<input
+							type="text"
+							id="display_name"
+							name="display_name"
+							value={ data.DisplayName }
+							required
+							maxlength="20"
+							class="input"
+						/>
+						if data.FieldErrors["display_name"] != "" {
+							<span class="field-error">{ data.FieldErrors["display_name"] }</span>
+						}
+					</div>
+					<div class="form-group">
+						<label for="password">Password</label>
+						<input
+							type="password"
+							id="password"
+							name="password"
+							required
+							minlength="8"
+							class="input"
+						/>
+						if data.FieldErrors["password"] != "" {
+							<span class="field-error">{ data.FieldErrors["password"] }</span>
+						}
+					</div>
+					<div class="form-group">
+						<label for="password_confirm">Confirm Password</label>
+						<input
+							type="password"
+							id="password_confirm"
+							name="password_confirm"
+							required
+							class="input"
+						/>
+						if data.FieldErrors["password_confirm"] != "" {
+							<span class="field-error">{ data.FieldErrors["password_confirm"] }</span>
+						}
+					</div>
+					<button type="submit" class="btn btn-primary">Register</button>
+				</form>
+				<div class="auth-footer">
+					Already have an account? <a href="/login">Login</a>
+				</div>
+			</div>
+		</div>
+	}
+}

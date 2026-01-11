@@ -1,0 +1,29 @@
+package components
+
+import "github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
+
+type ErrorPageData struct {
+	layout.PageData
+	ErrorCode    int
+	ErrorMessage string
+}
+
+templ ErrorPage(data ErrorPageData) {
+	@layout.Base(data.PageData) {
+		<div class="error-page">
+			<h1>{ string(rune('0' + data.ErrorCode/100)) + string(rune('0' + (data.ErrorCode/10)%10)) + string(rune('0' + data.ErrorCode%10)) }</h1>
+			<p>{ data.ErrorMessage }</p>
+			<a href="/" class="btn btn-primary">Go Home</a>
+		</div>
+	}
+}
+
+templ FormError(message string) {
+	<div class="form-error">
+		{ message }
+	</div>
+}
+
+templ FieldError(message string) {
+	<span class="field-error">{ message }</span>
+}

@@ -1,0 +1,84 @@
+package pages
+
+import (
+	"github.com/mcoot/crosswordgame-go2/internal/model"
+	"github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
+	"github.com/mcoot/crosswordgame-go2/internal/web/templates/components"
+)
+
+type LobbyData struct {
+	layout.PageData
+	Lobby    *model.Lobby
+	IsHost   bool
+	MyRole   model.LobbyMemberRole
+	MyMember *model.LobbyMember
+}
+
+templ Lobby(data LobbyData) {
+	@layout.Base(data.PageData) {
+		<div class="lobby-page" hx-ext="sse" sse-connect={ "/lobby/" + string(data.Lobby.Code) + "/events" }>
+			<div class="lobby-main">
+				<div class="lobby-header">
+					<div>
+						<h1>Lobby</h1>
+						<p>Share this code with friends:</p>
+						<span class="lobby-code">{ string(data.Lobby.Code) }</span>
+					</div>
+					<div>
+						<form action={ templ.SafeURL("/lobby/" + string(data.Lobby.Code) + "/leave") } method="post">
+							<button type="submit" class="btn btn-secondary">Leave Lobby</button>
+						</form>
+					</div>
+				</div>
+
+				if data.Lobby.State == model.LobbyStateWaiting {
+					@LobbyWaiting(data)
+				} else if data.Lobby.State == model.LobbyStateInGame {
+					@LobbyInGame(data)
+				}
+			</div>
+
+			<div class="lobby-sidebar">
+				<div id="member-list">
+					@components.MemberList(data.Lobby, data.Player.ID, data.IsHost)
+				</div>
+
+				if data.IsHost && data.Lobby.State == model.LobbyStateWaiting {
+					<div id="lobby-config">
+						@components.LobbyConfig(data.Lobby)
+					</div>
+				}
+			</div>
+		</div>
+	}
+}
+
+templ LobbyWaiting(data LobbyData) {
+	<div class="card">
+		<h2>Waiting for Players</h2>
+		<p>The host can start the game when at least one player is ready.</p>
+
+		if data.IsHost {
+			<div id="lobby-controls">
+				@components.LobbyControls(data.Lobby)
+			</div>
+		} else {
+			<p class="text-muted">Waiting for the host to start the game...</p>
+		}
+
+		if data.MyRole == model.RoleSpectator {
+			<p class="text-muted">You are currently a spectator. The host can add you as a player.</p>
+		}
+	</div>
+}
+
+templ LobbyInGame(data LobbyData) {
+	<div class="card">
+		<h2>Game in Progress</h2>
+		<p>
+			<a href={ templ.SafeURL("/lobby/" + string(data.Lobby.Code) + "/game") } class="btn btn-primary">
+				Go to Game
+			</a>
+		</p>
+	</div>
+}

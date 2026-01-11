@@ -1,0 +1,56 @@
+package pages
+
+import "github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
+
+type LoginData struct {
+	layout.PageData
+	Username string // Preserved on error
+	Error    string
+	Next     string // Redirect URL after login
+}
+
+templ Login(data LoginData) {
+	@layout.Base(data.PageData) {
+		<div class="auth-page">
+			<div class="card">
+				<h1>Login</h1>
+				if data.Error != "" {
+					<div class="form-error">
+						{ data.Error }
+					</div>
+				}
+				<form action="/auth/login" method="post" class="form-stack">
+					if data.Next != "" {
+						<input type="hidden" name="next" value={ data.Next }/>
+					}
+					<div class="form-group">
+						<label for="username">Username</label>
+						<input
+							type="text"
+							id="username"
+							name="username"
+							value={ data.Username }
+							required
+							autofocus
+							class="input"
+						/>
+					</div>
+					<div class="form-group">
+						<label for="password">Password</label>
+						<input
+							type="password"
+							id="password"
+							name="password"
+							required
+							class="input"
+						/>
+					</div>
+					<button type="submit" class="btn btn-primary">Login</button>
+				</form>
+				<div class="auth-footer">
+					Don't have an account? <a href="/register">Register</a>
+				</div>
+			</div>
+		</div>
+	}
+}

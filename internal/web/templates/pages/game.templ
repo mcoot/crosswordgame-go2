@@ -1,0 +1,94 @@
+package pages
+
+import (
+	"github.com/mcoot/crosswordgame-go2/internal/model"
+	"github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
+	"github.com/mcoot/crosswordgame-go2/internal/web/templates/components"
+)
+
+type GameData struct {
+	layout.PageData
+	Lobby       *model.Lobby
+	Game        *model.Game
+	MyBoard     *model.Board
+	IsAnnouncer bool
+	HasPlaced   bool
+	IsSpectator bool
+	AllBoards   map[model.PlayerID]*model.Board // For spectators or after game
+}
+
+templ Game(data GameData) {
+	@layout.Base(data.PageData) {
+		<div class="game-page" hx-ext="sse" sse-connect={ "/lobby/" + string(data.Lobby.Code) + "/events" }>
+			<div class="game-main">
+				<div id="game-status">
+					@components.GameStatus(data.Game, data.IsAnnouncer, data.HasPlaced)
+				</div>
+
+				if data.Game.State == model.GameStateAnnouncing && data.IsAnnouncer {
+					<div id="letter-picker">
+						@components.LetterPicker(data.Lobby.Code)
+					</div>
+				}
+
+				if !data.IsSpectator && data.MyBoard != nil {
+					<div id="game-board">
+						@components.GameBoard(data.Lobby.Code, data.MyBoard, data.Game, data.HasPlaced)
+					</div>
+				}
+
+				if data.Game.State == model.GameStateScoring {
+					<div id="game-scores">
+						@components.GameScores(data.Game)
+					</div>
+				}
+			</div>
+
+			<div class="game-sidebar">
+				if data.IsSpectator && len(data.AllBoards) > 0 {
+					<div class="spectator-boards">
+						<h3>All Boards</h3>
+						for playerID, board := range data.AllBoards {
+							@components.SpectatorBoard(playerID, board, data.Game)
+						}
+					</div>
+				}
+
+				<div class="card">
+					<h3>Game Info</h3>
+					<p>Lobby: <span class="lobby-code">{ string(data.Lobby.Code) }</span></p>
+					<p>Grid: { gridSizeStr(data.Game.GridSize) }</p>
+					<p>Turn: { turnStr(data.Game.CurrentTurn, data.Game.GridSize) }</p>
+					<a href={ templ.SafeURL("/lobby/" + string(data.Lobby.Code)) } class="btn btn-secondary">
+						Back to Lobby
+					</a>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+func gridSizeStr(size int) string {
+	s := intToStr(size)
+	return s + "x" + s
+}
+
+func turnStr(turn, gridSize int) string {
+	total := gridSize * gridSize
+	return intToStr(turn+1) + "/" + intToStr(total)
+}
+
+func intToStr(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	if n < 0 {
+		return "-" + intToStr(-n)
+	}
+	digits := ""
+	for n > 0 {
+		digits = string(rune('0'+n%10)) + digits
+		n /= 10
+	}
+	return digits
+}

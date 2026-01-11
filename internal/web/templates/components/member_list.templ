@@ -1,0 +1,51 @@
+package components
+
+import "github.com/mcoot/crosswordgame-go2/internal/model"
+
+templ MemberList(lobby *model.Lobby, currentPlayerID model.PlayerID, isHost bool) {
+	<div class="card">
+		<h3>Members ({ memberCount(lobby) })</h3>
+		<ul class="member-list">
+			for _, member := range lobby.Members {
+				<li class="member-item">
+					<span class="member-name">{ member.Player.DisplayName }</span>
+					<span class="member-badges">
+						if member.IsHost {
+							<span class="badge badge-host">Host</span>
+						}
+						if member.Role == model.RoleSpectator {
+							<span class="badge badge-spectator">Spectator</span>
+						}
+						if member.Player.ID == currentPlayerID {
+							<span class="badge badge-you">You</span>
+						}
+					</span>
+				</li>
+			}
+		</ul>
+	</div>
+}
+
+func memberCount(lobby *model.Lobby) string {
+	count := len(lobby.Members)
+	if count == 1 {
+		return "1 member"
+	}
+	// Simple int to string conversion for small numbers
+	return memberCountToString(count) + " members"
+}
+
+func memberCountToString(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	if n < 0 {
+		return "-" + memberCountToString(-n)
+	}
+	digits := ""
+	for n > 0 {
+		digits = string(rune('0'+n%10)) + digits
+		n /= 10
+	}
+	return digits
+}

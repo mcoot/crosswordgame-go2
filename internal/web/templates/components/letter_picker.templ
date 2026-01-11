@@ -1,0 +1,21 @@
+package components
+
+import "github.com/mcoot/crosswordgame-go2/internal/model"
+
+templ LetterPicker(lobbyCode model.LobbyCode) {
+	<div class="card">
+		<h3>Choose a Letter</h3>
+		<div class="letter-picker">
+			for _, letter := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
+				<form
+					action={ templ.SafeURL("/lobby/" + string(lobbyCode) + "/game/announce") }
+					method="post"
+					style="display: inline;"
+				>
+					<input type="hidden" name="letter" value={ string(letter) }/>
+					<button type="submit" class="letter-btn">{ string(letter) }</button>
+				</form>
+			}
+		</div>
+	</div>
+}
