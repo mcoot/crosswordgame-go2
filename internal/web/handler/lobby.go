@@ -277,11 +277,8 @@ func (h *LobbyHandler) SetRole(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not change role: "+err.Error())
 	} else {
-		// Broadcast member list update
-		lob, _ := h.lobbyController.GetLobby(r.Context(), code)
-		if lob != nil {
-			h.broadcaster.BroadcastMemberListUpdate(r.Context(), lob)
-		}
+		// Broadcast refresh so all clients get personalized views with correct role buttons
+		h.broadcaster.BroadcastRefresh(code)
 	}
 
 	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)

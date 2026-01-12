@@ -14,6 +14,7 @@ type GameData struct {
 	IsAnnouncer bool
 	HasPlaced   bool
 	IsSpectator bool
+	IsHost      bool
 	AllBoards   map[model.PlayerID]*model.Board // For spectators or after game
 	// Scoring data (populated when game state is scoring)
 	Scores      []model.BoardScore
@@ -32,6 +33,7 @@ templ Game(data GameData) {
 			<div hx-get={ "/lobby/" + string(data.Lobby.Code) + "/game" } hx-trigger="sse:turn-complete" hx-target="body" hx-swap="innerHTML" style="display:none;"></div>
 			<div hx-get={ "/lobby/" + string(data.Lobby.Code) + "/game" } hx-trigger="sse:game-complete" hx-target="body" hx-swap="innerHTML" style="display:none;"></div>
 			<div hx-get={ "/lobby/" + string(data.Lobby.Code) } hx-trigger="sse:game-abandoned" hx-target="body" hx-swap="innerHTML" hx-push-url="true" style="display:none;"></div>
+			<div hx-get={ "/lobby/" + string(data.Lobby.Code) } hx-trigger="sse:game-dismissed" hx-target="body" hx-swap="innerHTML" hx-push-url="true" style="display:none;"></div>
 			<div hx-get={ "/lobby/" + string(data.Lobby.Code) + "/game" } hx-trigger="sse:refresh" hx-target="body" hx-swap="innerHTML" style="display:none;"></div>
 			<div class="game-main">
 				<div id="game-status">
@@ -65,6 +67,17 @@ templ Game(data GameData) {
 							GridSize:    data.Game.GridSize,
 						})
 					</div>
+					if data.IsHost {
+						<div id="post-game-controls" class="post-game-controls" style="margin-top: 1rem;">
+							<form action={ templ.SafeURL("/lobby/" + string(data.Lobby.Code) + "/game/dismiss") } method="post" style="display: inline-block; margin-right: 0.5rem;">
+								<button type="submit" class="btn btn-secondary">Return to Lobby</button>
+							</form>
+							<form action={ templ.SafeURL("/lobby/" + string(data.Lobby.Code) + "/game/dismiss") } method="post" style="display: inline-block;">
+								<input type="hidden" name="start_new" value="true"/>
+								<button type="submit" class="btn btn-primary">Play Again</button>
+							</form>
+						</div>
+					}
 				}
 			</div>
 
@@ -86,6 +99,11 @@ templ Game(data GameData) {
 					<a href={ templ.SafeURL("/lobby/" + string(data.Lobby.Code)) } class="btn btn-secondary">
 						Back to Lobby
 					</a>
+					if data.IsHost && (data.Game.State == model.GameStateAnnouncing || data.Game.State == model.GameStatePlacing) {
+						<form action={ templ.SafeURL("/lobby/" + string(data.Lobby.Code) + "/game/abandon") } method="post" style="margin-top: 1rem;">
+							<button type="submit" class="btn btn-danger">Abandon Game</button>
+						</form>
+					}
 				</div>
 			</div>
 		</div>

@@ -99,6 +99,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	protected.HandleFunc("/lobby/{code}/game/announce", gameHandler.Announce).Methods(http.MethodPost)
 	protected.HandleFunc("/lobby/{code}/game/place", gameHandler.Place).Methods(http.MethodPost)
 	protected.HandleFunc("/lobby/{code}/game/abandon", gameHandler.Abandon).Methods(http.MethodPost)
+	protected.HandleFunc("/lobby/{code}/game/dismiss", gameHandler.Dismiss).Methods(http.MethodPost)
 
 	return r
 }

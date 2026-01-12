@@ -287,3 +287,177 @@ func TestBackToLobbyLink(t *testing.T) {
 	// Should have link back to lobby
 	assertContainsElement(t, doc, "a[href='/lobby/"+lobbyCode+"']")
 }
+
+func TestHostSeesAbandonButtonDuringGame(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, _ := setupTwoPlayerGame(t, ts, 3)
+
+	// Alice (host) starts game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Get game page as host
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// Host should see abandon button
+	abandonForm := doc.Find("form[action='/lobby/" + lobbyCode + "/game/abandon']")
+	assert.Equal(t, 1, abandonForm.Length(), "Host should see abandon form")
+
+	abandonButton := abandonForm.Find("button")
+	assert.True(t, strings.Contains(abandonButton.Text(), "Abandon"),
+		"Abandon button should contain text 'Abandon'")
+}
+
+func TestNonHostNoAbandonButton(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 3)
+
+	// Alice (host) starts game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Get game page as Bob (non-host)
+	ts.cookies = bobCookies
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// Non-host should NOT see abandon form
+	abandonForm := doc.Find("form[action='/lobby/" + lobbyCode + "/game/abandon']")
+	assert.Equal(t, 0, abandonForm.Length(), "Non-host should not see abandon form")
+}
+
+// completeGame plays through all turns of a 2x2 game to reach scoring state
+func completeGame(t *testing.T, ts *webTestServer, lobbyCode string, aliceCookies, bobCookies *cookieJar) {
+	t.Helper()
+
+	// For a 2x2 grid, we need 4 turns
+	positions := []struct{ row, col string }{
+		{"0", "0"}, {"0", "1"}, {"1", "0"}, {"1", "1"},
+	}
+	letters := []string{"A", "B", "C", "D"}
+
+	for i, pos := range positions {
+		// Find announcer
+		ts.cookies = aliceCookies
+		rr := ts.get("/lobby/" + lobbyCode + "/game")
+		doc := parseHTML(rr.Body)
+		announcerCookies := aliceCookies
+		otherCookies := bobCookies
+		if doc.Find("#letter-picker").Length() == 0 {
+			announcerCookies = bobCookies
+			otherCookies = aliceCookies
+		}
+
+		// Announce letter
+		ts.cookies = announcerCookies
+		ts.post("/lobby/"+lobbyCode+"/game/announce", url.Values{"letter": {letters[i]}})
+
+		// Both players place
+		ts.cookies = announcerCookies
+		ts.post("/lobby/"+lobbyCode+"/game/place", url.Values{"row": {pos.row}, "col": {pos.col}})
+		ts.cookies = otherCookies
+		ts.post("/lobby/"+lobbyCode+"/game/place", url.Values{"row": {pos.row}, "col": {pos.col}})
+	}
+}
+
+func TestHostSeesDismissButtonOnScoring(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 2) // 2x2 for quick completion
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Complete the game
+	completeGame(t, ts, lobbyCode, aliceCookies, bobCookies)
+
+	// Get game page as host
+	ts.cookies = aliceCookies
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// Host should see dismiss form (Return to Lobby)
+	dismissForm := doc.Find("form[action='/lobby/" + lobbyCode + "/game/dismiss']")
+	assert.GreaterOrEqual(t, dismissForm.Length(), 1, "Host should see dismiss form")
+
+	// Should see both Return to Lobby and Play Again buttons
+	assertContainsText(t, doc, "#post-game-controls", "Return to Lobby")
+	assertContainsText(t, doc, "#post-game-controls", "Play Again")
+}
+
+func TestNonHostNoDismissButton(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 2)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Complete the game
+	completeGame(t, ts, lobbyCode, aliceCookies, bobCookies)
+
+	// Get game page as non-host
+	ts.cookies = bobCookies
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// Non-host should NOT see post-game controls
+	postGameControls := doc.Find("#post-game-controls")
+	assert.Equal(t, 0, postGameControls.Length(), "Non-host should not see post-game controls")
+}
+
+func TestDismissGameReturnsToLobby(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 2)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Complete the game
+	completeGame(t, ts, lobbyCode, aliceCookies, bobCookies)
+
+	// Dismiss game as host
+	ts.cookies = aliceCookies
+	rr := ts.post("/lobby/"+lobbyCode+"/game/dismiss", nil)
+
+	// Should redirect to lobby
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode)
+
+	// Follow redirect and verify we're in lobby waiting state
+	rr = ts.followRedirect(rr)
+	doc := parseHTML(rr.Body)
+	assertContainsText(t, doc, "body", "Waiting")
+}
+
+func TestPlayAgainStartsNewGame(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 2)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Complete the game
+	completeGame(t, ts, lobbyCode, aliceCookies, bobCookies)
+
+	// Click Play Again (dismiss with start_new=true)
+	ts.cookies = aliceCookies
+	rr := ts.post("/lobby/"+lobbyCode+"/game/dismiss", url.Values{"start_new": {"true"}})
+
+	// Should redirect to game page
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode+"/game")
+
+	// Follow redirect and verify we're in a new game (announcing state)
+	rr = ts.followRedirect(rr)
+	doc := parseHTML(rr.Body)
+	// New game should be in progress (has game status, turn 1)
+	assertContainsElement(t, doc, "#game-status")
+}

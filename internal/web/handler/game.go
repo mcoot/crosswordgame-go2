@@ -72,9 +72,11 @@ func (h *GameHandler) View(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check player's role
+	// Check player's role and host status
 	member := lob.GetMember(player.ID)
 	isSpectator := member == nil || member.Role == model.RoleSpectator
+	host := lob.GetHost()
+	isHost := host != nil && host.Player.ID == player.ID
 
 	// Check if player is in the game
 	isInGame := false
@@ -136,6 +138,7 @@ func (h *GameHandler) View(w http.ResponseWriter, r *http.Request) {
 		IsAnnouncer: isAnnouncer,
 		HasPlaced:   hasPlaced,
 		IsSpectator: isSpectator || !isInGame,
+		IsHost:      isHost,
 		AllBoards:   allBoards,
 		Scores:      scores,
 		Winner:      winner,
@@ -301,6 +304,69 @@ func (h *GameHandler) Abandon(w http.ResponseWriter, r *http.Request) {
 		// Broadcast game-abandoned so all clients go back to lobby
 		h.broadcaster.BroadcastGameAbandoned(code)
 	}
+
+	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+}
+
+// Dismiss handles dismissing game scores and returning to lobby
+func (h *GameHandler) Dismiss(w http.ResponseWriter, r *http.Request) {
+	player := middleware.GetPlayer(r.Context())
+	if player == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	vars := mux.Vars(r)
+	code := model.LobbyCode(vars["code"])
+
+	// Parse form to check for start_new flag
+	if err := r.ParseForm(); err != nil {
+		middleware.SetFlash(w, "error", "Invalid form data")
+		http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+		return
+	}
+	startNew := r.FormValue("start_new") == "true"
+
+	// Verify player is host
+	lob, err := h.lobbyController.GetLobby(r.Context(), code)
+	if err != nil {
+		middleware.SetFlash(w, "error", "Lobby not found")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	host := lob.GetHost()
+	if host == nil || host.Player.ID != player.ID {
+		middleware.SetFlash(w, "error", "Only the host can dismiss the game")
+		http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+		return
+	}
+
+	// Complete the game (saves summary to history and returns lobby to waiting state)
+	err = h.lobbyController.CompleteGame(r.Context(), code)
+	if err != nil {
+		middleware.SetFlash(w, "error", "Could not dismiss game: "+err.Error())
+		http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+		return
+	}
+
+	// If start_new flag is set, start a new game immediately
+	if startNew {
+		_, err = h.lobbyController.StartGame(r.Context(), code, player.ID)
+		if err != nil {
+			middleware.SetFlash(w, "error", "Could not start new game: "+err.Error())
+			h.broadcaster.BroadcastGameDismissed(code)
+			http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+			return
+		}
+		// Broadcast game started so all clients go to game page
+		h.broadcaster.BroadcastGameStarted(code)
+		http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+		return
+	}
+
+	// Broadcast game-dismissed so all clients go back to lobby
+	h.broadcaster.BroadcastGameDismissed(code)
 
 	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
 }

@@ -268,3 +268,262 @@ func TestCannotStartGameWithoutEnoughPlayers(t *testing.T) {
 	require.True(t, rr.Code == http.StatusSeeOther || rr.Code == http.StatusOK,
 		"Expected redirect or success, got %d", rr.Code)
 }
+
+func TestHostSeesRoleToggleButtons(t *testing.T) {
+	ts := newWebTestServer(t)
+
+	// Alice creates lobby
+	ts.createGuestPlayer("Alice")
+	lobbyCode := ts.createLobby(5)
+	aliceCookies := ts.cookies
+
+	// Bob joins
+	ts.cookies = newCookieJar()
+	ts.createGuestPlayer("Bob")
+	ts.joinLobby(lobbyCode)
+
+	// Get lobby page as Alice (host)
+	ts.cookies = aliceCookies
+	rr := ts.get("/lobby/" + lobbyCode)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// Host should see role toggle form for Bob
+	roleForm := doc.Find("form[action='/lobby/" + lobbyCode + "/role']")
+	assert.GreaterOrEqual(t, roleForm.Length(), 1, "Host should see role toggle form")
+
+	// Should see "Make Spectator" button since Bob is a player by default
+	assertContainsText(t, doc, ".member-actions", "Make Spectator")
+}
+
+func TestNonHostNoRoleToggleButtons(t *testing.T) {
+	ts := newWebTestServer(t)
+
+	// Alice creates lobby
+	ts.createGuestPlayer("Alice")
+	lobbyCode := ts.createLobby(5)
+
+	// Bob joins
+	bobCookies := newCookieJar()
+	ts.cookies = bobCookies
+	ts.createGuestPlayer("Bob")
+	ts.joinLobby(lobbyCode)
+
+	// Get lobby page as Bob (non-host)
+	rr := ts.get("/lobby/" + lobbyCode)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// Non-host should NOT see role toggle form
+	roleForm := doc.Find("form[action='/lobby/" + lobbyCode + "/role']")
+	assert.Equal(t, 0, roleForm.Length(), "Non-host should not see role toggle form")
+}
+
+func TestHostCanTogglePlayerToSpectator(t *testing.T) {
+	ts := newWebTestServer(t)
+
+	// Alice creates lobby
+	ts.createGuestPlayer("Alice")
+	lobbyCode := ts.createLobby(5)
+	aliceCookies := ts.cookies
+
+	// Bob joins (as player by default)
+	ts.cookies = newCookieJar()
+	ts.createGuestPlayer("Bob")
+	ts.joinLobby(lobbyCode)
+	bobCookies := ts.cookies
+
+	// Get Bob's player ID from the lobby page
+	ts.cookies = aliceCookies
+	rr := ts.get("/lobby/" + lobbyCode)
+	doc := parseHTML(rr.Body)
+
+	// Find Bob's player ID from the hidden input
+	playerIDInput := doc.Find("input[name='player_id']").First()
+	bobPlayerID, _ := playerIDInput.Attr("value")
+	require.NotEmpty(t, bobPlayerID, "Should find Bob's player ID")
+
+	// Toggle Bob to spectator
+	form := url.Values{"player_id": {bobPlayerID}, "role": {"spectator"}}
+	rr = ts.post("/lobby/"+lobbyCode+"/role", form)
+
+	// Should redirect back to lobby
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+
+	// Verify Bob is now a spectator
+	rr = ts.followRedirect(rr)
+	doc = parseHTML(rr.Body)
+
+	// Now should see "Make Player" button for Bob
+	assertContainsText(t, doc, ".member-actions", "Make Player")
+
+	// Also verify Bob sees himself as spectator
+	ts.cookies = bobCookies
+	rr = ts.get("/lobby/" + lobbyCode)
+	doc = parseHTML(rr.Body)
+	// Bob's entry should have spectator badge
+	assertContainsText(t, doc, "#member-list", "Spectator")
+}
+
+func TestHostCanToggleSpectatorToPlayer(t *testing.T) {
+	ts := newWebTestServer(t)
+
+	// Alice creates lobby
+	ts.createGuestPlayer("Alice")
+	lobbyCode := ts.createLobby(5)
+	aliceCookies := ts.cookies
+
+	// Bob joins
+	ts.cookies = newCookieJar()
+	ts.createGuestPlayer("Bob")
+	ts.joinLobby(lobbyCode)
+
+	// Alice makes Bob a spectator first
+	ts.cookies = aliceCookies
+	rr := ts.get("/lobby/" + lobbyCode)
+	doc := parseHTML(rr.Body)
+	playerIDInput := doc.Find("input[name='player_id']").First()
+	bobPlayerID, _ := playerIDInput.Attr("value")
+
+	ts.post("/lobby/"+lobbyCode+"/role", url.Values{"player_id": {bobPlayerID}, "role": {"spectator"}})
+
+	// Now toggle Bob back to player
+	form := url.Values{"player_id": {bobPlayerID}, "role": {"player"}}
+	rr = ts.post("/lobby/"+lobbyCode+"/role", form)
+
+	// Should redirect back to lobby
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+
+	// Verify we see "Make Spectator" again (Bob is now player)
+	rr = ts.followRedirect(rr)
+	doc = parseHTML(rr.Body)
+	assertContainsText(t, doc, ".member-actions", "Make Spectator")
+}
+
+func TestRoleToggleNotShownDuringGame(t *testing.T) {
+	ts := newWebTestServer(t)
+
+	// Alice creates lobby
+	ts.createGuestPlayer("Alice")
+	lobbyCode := ts.createLobby(5)
+	aliceCookies := ts.cookies
+
+	// Bob joins
+	ts.cookies = newCookieJar()
+	ts.createGuestPlayer("Bob")
+	ts.joinLobby(lobbyCode)
+
+	// Alice starts game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Go back to lobby page (even during game, page should be viewable)
+	rr := ts.get("/lobby/" + lobbyCode)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// During game, role toggle should NOT be visible
+	memberActions := doc.Find(".member-actions")
+	assert.Equal(t, 0, memberActions.Length(), "Role toggle should not be shown during game")
+}
+
+func TestHostSeesTransferHostButton(t *testing.T) {
+	ts := newWebTestServer(t)
+
+	// Alice creates lobby
+	ts.createGuestPlayer("Alice")
+	lobbyCode := ts.createLobby(5)
+	aliceCookies := ts.cookies
+
+	// Bob joins
+	ts.cookies = newCookieJar()
+	ts.createGuestPlayer("Bob")
+	ts.joinLobby(lobbyCode)
+
+	// Get lobby page as Alice (host)
+	ts.cookies = aliceCookies
+	rr := ts.get("/lobby/" + lobbyCode)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// Host should see transfer host form
+	transferForm := doc.Find("form[action='/lobby/" + lobbyCode + "/transfer-host']")
+	assert.GreaterOrEqual(t, transferForm.Length(), 1, "Host should see transfer host form")
+	assertContainsText(t, doc, ".member-actions", "Make Host")
+}
+
+func TestNonHostNoTransferHostButton(t *testing.T) {
+	ts := newWebTestServer(t)
+
+	// Alice creates lobby
+	ts.createGuestPlayer("Alice")
+	lobbyCode := ts.createLobby(5)
+
+	// Bob joins
+	bobCookies := newCookieJar()
+	ts.cookies = bobCookies
+	ts.createGuestPlayer("Bob")
+	ts.joinLobby(lobbyCode)
+
+	// Get lobby page as Bob (non-host)
+	rr := ts.get("/lobby/" + lobbyCode)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// Non-host should NOT see transfer host form
+	transferForm := doc.Find("form[action='/lobby/" + lobbyCode + "/transfer-host']")
+	assert.Equal(t, 0, transferForm.Length(), "Non-host should not see transfer host form")
+}
+
+func TestHostCanTransferHost(t *testing.T) {
+	ts := newWebTestServer(t)
+
+	// Alice creates lobby
+	ts.createGuestPlayer("Alice")
+	lobbyCode := ts.createLobby(5)
+	aliceCookies := ts.cookies
+
+	// Bob joins
+	ts.cookies = newCookieJar()
+	ts.createGuestPlayer("Bob")
+	ts.joinLobby(lobbyCode)
+	bobCookies := ts.cookies
+
+	// Get Bob's player ID from the lobby page
+	ts.cookies = aliceCookies
+	rr := ts.get("/lobby/" + lobbyCode)
+	doc := parseHTML(rr.Body)
+
+	// Find Bob's player ID from the hidden input in transfer-host form
+	newHostIDInput := doc.Find("input[name='new_host_id']").First()
+	bobPlayerID, _ := newHostIDInput.Attr("value")
+	require.NotEmpty(t, bobPlayerID, "Should find Bob's player ID")
+
+	// Transfer host to Bob
+	form := url.Values{"new_host_id": {bobPlayerID}}
+	rr = ts.post("/lobby/"+lobbyCode+"/transfer-host", form)
+
+	// Should redirect back to lobby
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+
+	// Verify Bob is now host
+	rr = ts.followRedirect(rr)
+	doc = parseHTML(rr.Body)
+
+	// Alice should no longer see host controls (she's not host anymore)
+	// The member-actions should not be visible for Alice's view (she's not host)
+	// Actually Alice still sees the page but shouldn't see controls
+	memberActions := doc.Find(".member-actions")
+	assert.Equal(t, 0, memberActions.Length(), "Former host should not see member actions")
+
+	// Verify Bob sees host controls now
+	ts.cookies = bobCookies
+	rr = ts.get("/lobby/" + lobbyCode)
+	doc = parseHTML(rr.Body)
+
+	// Bob should now see host controls
+	assertContainsElement(t, doc, "#lobby-controls")
+	// Bob should see role toggle buttons for Alice (who is now a non-host member)
+	memberActions = doc.Find(".member-actions")
+	assert.GreaterOrEqual(t, memberActions.Length(), 1, "New host should see member actions")
+}

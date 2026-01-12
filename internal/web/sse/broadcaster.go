@@ -171,3 +171,15 @@ func (b *Broadcaster) BroadcastRefresh(lobbyCode model.LobbyCode) {
 	// Send simple signal - HTMX will fetch the page
 	hub.BroadcastEvent("refresh", "refresh")
 }
+
+// BroadcastGameDismissed broadcasts that the game scores have been dismissed
+// HTMX will trigger a fetch to the lobby page via hx-trigger="sse:game-dismissed"
+func (b *Broadcaster) BroadcastGameDismissed(lobbyCode model.LobbyCode) {
+	hub := b.hubManager.GetHub(lobbyCode)
+	if hub == nil {
+		return
+	}
+
+	// Send simple signal - HTMX will fetch the lobby page
+	hub.BroadcastEvent("game-dismissed", "dismissed")
+}
