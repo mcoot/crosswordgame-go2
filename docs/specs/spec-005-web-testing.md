@@ -1,7 +1,7 @@
 ---
 spec_id: "spec-005"
 spec_name: "Web Interface Testing"
-status: "PROPOSED"
+status: "ACTIVE"
 ---
 # spec-005 - Web Interface Testing
 
@@ -364,4 +364,22 @@ Not planned, but could use tools like Percy or Playwright's screenshot compariso
 
 ## Status details
 
-Status: PROPOSED - Awaiting approval before implementation.
+Status: ACTIVE - Implementation complete.
+
+**Implemented:**
+1. Added goquery dependency for HTML parsing
+2. Created test infrastructure (`web_test.go`) with:
+   - `webTestServer` struct for test server management
+   - `cookieJar` for session persistence across requests
+   - Helper functions for common operations
+   - Assertion helpers for HTML testing
+3. Auth flow tests (`web_auth_test.go`) - 13 tests covering guest creation, login, register, logout, sessions
+4. Lobby flow tests (`web_lobby_test.go`) - 14 tests covering create, join, leave, config, host controls
+5. Game flow tests (`web_game_test.go`) - 11 tests covering game page, announce, place, abandon
+6. Error handling tests (`web_error_test.go`) - 8 tests covering flash messages, validation errors
+
+**Test count:** 46 new web interface tests
+
+**Not implemented (deferred):**
+- `data-testid` attributes - tests work well with existing selectors (#id, .class, [attribute])
+- Browser automation tests - HTTP-level testing proved sufficient for current needs

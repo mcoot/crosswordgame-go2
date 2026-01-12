@@ -41,6 +41,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/MirrexOne/unqueryvet v1.3.0 // indirect
 	github.com/OpenPeeDeeP/depguard/v2 v2.2.1 // indirect
+	github.com/PuerkitoBio/goquery v1.11.0 // indirect
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/alecthomas/chroma/v2 v2.21.1 // indirect
 	github.com/alecthomas/go-check-sumtype v0.3.1 // indirect
@@ -50,6 +51,7 @@ require (
 	github.com/alingse/asasalint v0.0.11 // indirect
 	github.com/alingse/nilnesserr v0.2.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/ashanbrown/forbidigo/v2 v2.3.0 // indirect
 	github.com/ashanbrown/makezero/v2 v2.1.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.36.3 // indirect

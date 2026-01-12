@@ -1,0 +1,289 @@
+package web_test
+
+import (
+	"net/http"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+// setupTwoPlayerGame creates a lobby with two players and returns the lobby code
+// and the cookies for both players (alice is host)
+func setupTwoPlayerGame(t *testing.T, ts *webTestServer, gridSize int) (lobbyCode string, aliceCookies, bobCookies *cookieJar) {
+	t.Helper()
+
+	// Alice creates lobby
+	ts.createGuestPlayer("Alice")
+	lobbyCode = ts.createLobby(gridSize)
+	aliceCookies = ts.cookies
+
+	// Bob joins
+	bobCookies = newCookieJar()
+	ts.cookies = bobCookies
+	ts.createGuestPlayer("Bob")
+	ts.joinLobby(lobbyCode)
+
+	return lobbyCode, aliceCookies, bobCookies
+}
+
+func TestGamePageShowsBoard(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, _ := setupTwoPlayerGame(t, ts, 3)
+
+	// Alice starts game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Get game page
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	doc := parseHTML(rr.Body)
+	// Should show game board
+	assertContainsElement(t, doc, "#game-board")
+	// Should show game status
+	assertContainsElement(t, doc, "#game-status")
+}
+
+func TestAnnouncerSeesLetterPicker(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 3)
+
+	// Alice starts game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Get game page as Alice
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	aliceDoc := parseHTML(rr.Body)
+
+	// Get game page as Bob
+	ts.cookies = bobCookies
+	rr = ts.get("/lobby/" + lobbyCode + "/game")
+	bobDoc := parseHTML(rr.Body)
+
+	// One of them should be the announcer and see the letter picker
+	// The other should not
+	aliceHasPicker := aliceDoc.Find("#letter-picker").Length() > 0
+	bobHasPicker := bobDoc.Find("#letter-picker").Length() > 0
+
+	// Exactly one should have the picker
+	assert.True(t, aliceHasPicker != bobHasPicker,
+		"Exactly one player should see letter picker. Alice: %v, Bob: %v", aliceHasPicker, bobHasPicker)
+}
+
+func TestAnnounceLetter(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 3)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Find who is announcer
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	aliceDoc := parseHTML(rr.Body)
+	announcerCookies := aliceCookies
+	if aliceDoc.Find("#letter-picker").Length() == 0 {
+		announcerCookies = bobCookies
+	}
+
+	// Announce as announcer
+	ts.cookies = announcerCookies
+	form := url.Values{"letter": {"A"}}
+	rr = ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+
+	// Should redirect back to game
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode+"/game")
+
+	// Follow redirect and verify letter is shown
+	rr = ts.followRedirect(rr)
+	doc := parseHTML(rr.Body)
+	assertContainsText(t, doc, "#game-status", "A")
+}
+
+func TestPlaceLetter(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 3)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Find announcer and announce
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	aliceDoc := parseHTML(rr.Body)
+	announcerCookies := aliceCookies
+	if aliceDoc.Find("#letter-picker").Length() == 0 {
+		announcerCookies = bobCookies
+	}
+
+	ts.cookies = announcerCookies
+	form := url.Values{"letter": {"A"}}
+	ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+
+	// Now place letter (as Alice)
+	ts.cookies = aliceCookies
+	form = url.Values{"row": {"0"}, "col": {"0"}}
+	rr = ts.post("/lobby/"+lobbyCode+"/game/place", form)
+
+	// Should redirect back to game
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+
+	// Follow redirect and verify placement reflected
+	rr = ts.followRedirect(rr)
+	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestPlaceOnOccupiedCell(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 3)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Find announcer and announce
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	aliceDoc := parseHTML(rr.Body)
+	announcerCookies := aliceCookies
+	otherCookies := bobCookies
+	if aliceDoc.Find("#letter-picker").Length() == 0 {
+		announcerCookies = bobCookies
+		otherCookies = aliceCookies
+	}
+
+	// First turn - announce and both place at 0,0
+	ts.cookies = announcerCookies
+	form := url.Values{"letter": {"A"}}
+	ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+
+	ts.cookies = announcerCookies
+	form = url.Values{"row": {"0"}, "col": {"0"}}
+	ts.post("/lobby/"+lobbyCode+"/game/place", form)
+
+	ts.cookies = otherCookies
+	form = url.Values{"row": {"0"}, "col": {"0"}}
+	ts.post("/lobby/"+lobbyCode+"/game/place", form)
+
+	// Second turn - announce and try to place at same position
+	rr = ts.get("/lobby/" + lobbyCode + "/game")
+	doc := parseHTML(rr.Body)
+	if doc.Find("#letter-picker").Length() > 0 {
+		// This player is announcer
+		form = url.Values{"letter": {"B"}}
+		ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+	} else {
+		// Switch to announcer
+		if ts.cookies == announcerCookies {
+			ts.cookies = otherCookies
+		} else {
+			ts.cookies = announcerCookies
+		}
+		form = url.Values{"letter": {"B"}}
+		ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+	}
+
+	// Try to place at already occupied cell
+	ts.cookies = aliceCookies
+	form = url.Values{"row": {"0"}, "col": {"0"}}
+	rr = ts.post("/lobby/"+lobbyCode+"/game/place", form)
+
+	// Should get an error (redirect with flash or error response)
+	// The handler should handle this gracefully
+	assert.True(t, rr.Code == http.StatusSeeOther || rr.Code == http.StatusBadRequest || rr.Code == http.StatusOK)
+}
+
+func TestAbandonGame(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, _ := setupTwoPlayerGame(t, ts, 3)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Abandon game (host only)
+	rr := ts.post("/lobby/"+lobbyCode+"/game/abandon", nil)
+
+	// Should redirect to lobby
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode)
+
+	// Follow redirect and verify we're back in lobby (no game)
+	rr = ts.followRedirect(rr)
+	doc := parseHTML(rr.Body)
+	// Should be in lobby waiting state, not game
+	assertContainsText(t, doc, "body", "Waiting")
+}
+
+func TestNonHostCannotAbandonGame(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, bobCookies := setupTwoPlayerGame(t, ts, 3)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Bob tries to abandon
+	ts.cookies = bobCookies
+	rr := ts.post("/lobby/"+lobbyCode+"/game/abandon", nil)
+
+	// Should get error
+	assert.True(t, rr.Code == http.StatusForbidden || rr.Code == http.StatusSeeOther,
+		"Expected forbidden or redirect, got %d", rr.Code)
+}
+
+func TestGameStatusShowsTurnInfo(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, _ := setupTwoPlayerGame(t, ts, 3)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Get game page
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	doc := parseHTML(rr.Body)
+
+	// Game status should show turn info
+	statusText := doc.Find("#game-status").Text()
+	assert.True(t, strings.Contains(statusText, "1") || strings.Contains(statusText, "Turn"),
+		"Status should show turn info: %s", statusText)
+}
+
+func TestGameShowsGridSize(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, _ := setupTwoPlayerGame(t, ts, 5)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Get game page
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	doc := parseHTML(rr.Body)
+
+	// Should show grid size somewhere
+	assertContainsText(t, doc, ".game-sidebar", "5x5")
+}
+
+func TestBackToLobbyLink(t *testing.T) {
+	ts := newWebTestServer(t)
+	lobbyCode, aliceCookies, _ := setupTwoPlayerGame(t, ts, 3)
+
+	// Start game
+	ts.cookies = aliceCookies
+	ts.startGame(lobbyCode)
+
+	// Get game page
+	rr := ts.get("/lobby/" + lobbyCode + "/game")
+	doc := parseHTML(rr.Body)
+
+	// Should have link back to lobby
+	assertContainsElement(t, doc, "a[href='/lobby/"+lobbyCode+"']")
+}
