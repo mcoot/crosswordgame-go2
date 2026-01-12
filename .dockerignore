@@ -1,0 +1,32 @@
+# Version control
+.git
+.gitignore
+
+# CI/CD (we'll copy deploy.yml but don't need it in image)
+.github
+
+# Documentation (except data directory docs)
+*.md
+!data/*.md
+docs/
+
+# Build artifacts
+bin/
+coverage.*
+
+# Development tooling
+.golangci.yml
+Taskfile.yml
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude files
+.claude/
+
+# Test files (not needed in production)
+*_test.go
+testdata/

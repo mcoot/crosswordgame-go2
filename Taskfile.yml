@@ -122,3 +122,29 @@ tasks:
       - task: fmt:check
       - task: lint
       - task: test
+
+  # Docker tasks
+  docker:build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t cwgame .
+
+  docker:run:
+    desc: Run application in Docker container
+    deps: [docker:build]
+    cmds:
+      - docker run --rm -p 8080:8080 cwgame
+
+  docker:run:detached:
+    desc: Run application in Docker container (detached)
+    deps: [docker:build]
+    cmds:
+      - docker run -d --name cwgame -p 8080:8080 cwgame
+      - echo "Container started. Visit http://localhost:8080"
+      - echo "Stop with 'task docker:stop'"
+
+  docker:stop:
+    desc: Stop and remove the Docker container
+    cmds:
+      - docker stop cwgame || true
+      - docker rm cwgame || true
