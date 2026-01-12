@@ -12,6 +12,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
+	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
 )
 
 // RouterConfig holds configuration for the API router
@@ -21,6 +22,7 @@ type RouterConfig struct {
 	LobbyController *lobby.Controller
 	GameController  *game.Controller
 	BoardService    *board.Service
+	HubManager      *sse.HubManager // Optional: for SSE broadcast support
 }
 
 // NewRouter creates a new API router with all routes configured
@@ -29,8 +31,8 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	// Create handlers
 	playerHandler := handler.NewPlayerHandler(cfg.AuthService)
-	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController)
-	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService)
+	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.HubManager)
+	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.HubManager)
 
 	// Create middleware
 	authMiddleware := middleware.Auth(cfg.AuthService)

@@ -11,18 +11,29 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/api/response"
 	"github.com/mcoot/crosswordgame-go2/internal/model"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
+	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
 )
 
 // LobbyHandler handles lobby-related endpoints
 type LobbyHandler struct {
 	lobbyController *lobby.Controller
+	hubManager      *sse.HubManager
 }
 
 // NewLobbyHandler creates a new lobby handler
-func NewLobbyHandler(lobbyController *lobby.Controller) *LobbyHandler {
+func NewLobbyHandler(lobbyController *lobby.Controller, hubManager *sse.HubManager) *LobbyHandler {
 	return &LobbyHandler{
 		lobbyController: lobbyController,
+		hubManager:      hubManager,
 	}
+}
+
+// broadcaster creates a broadcaster for SSE events if hub manager is available
+func (h *LobbyHandler) broadcaster() *sse.Broadcaster {
+	if h.hubManager == nil {
+		return nil
+	}
+	return sse.NewBroadcaster(h.hubManager)
 }
 
 // Create handles POST /api/v1/lobbies
@@ -83,6 +94,11 @@ func (h *LobbyHandler) Join(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast member list update to SSE clients
+	if b := h.broadcaster(); b != nil {
+		b.BroadcastMemberListUpdate(r.Context(), lobby)
+	}
+
 	response.JSON(w, http.StatusOK, response.LobbyFromModel(lobby))
 }
 
@@ -94,6 +110,14 @@ func (h *LobbyHandler) Leave(w http.ResponseWriter, r *http.Request) {
 	if err := h.lobbyController.LeaveLobby(r.Context(), code, player.ID); err != nil {
 		WriteError(w, err)
 		return
+	}
+
+	// Broadcast member list update to SSE clients
+	if b := h.broadcaster(); b != nil {
+		lobby, _ := h.lobbyController.GetLobby(r.Context(), code)
+		if lobby != nil {
+			b.BroadcastMemberListUpdate(r.Context(), lobby)
+		}
 	}
 
 	response.NoContent(w)
@@ -114,6 +138,11 @@ func (h *LobbyHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	if err := h.lobbyController.UpdateConfig(r.Context(), code, player.ID, config); err != nil {
 		WriteError(w, err)
 		return
+	}
+
+	// Broadcast refresh to SSE clients
+	if b := h.broadcaster(); b != nil {
+		b.BroadcastRefresh(code)
 	}
 
 	response.JSON(w, http.StatusOK, response.LobbyConfigFromModel(config))
@@ -151,6 +180,14 @@ func (h *LobbyHandler) SetRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast member list update to SSE clients
+	if b := h.broadcaster(); b != nil {
+		lobby, _ = h.lobbyController.GetLobby(r.Context(), code)
+		if lobby != nil {
+			b.BroadcastMemberListUpdate(r.Context(), lobby)
+		}
+	}
+
 	response.NoContent(w)
 }
 
@@ -174,6 +211,11 @@ func (h *LobbyHandler) TransferHost(w http.ResponseWriter, r *http.Request) {
 	if err := h.lobbyController.TransferHost(r.Context(), code, player.ID, newHostID); err != nil {
 		WriteError(w, err)
 		return
+	}
+
+	// Broadcast refresh to SSE clients
+	if b := h.broadcaster(); b != nil {
+		b.BroadcastRefresh(code)
 	}
 
 	response.NoContent(w)

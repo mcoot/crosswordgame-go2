@@ -110,6 +110,12 @@ tasks:
     cmds:
       - go test -v ./e2e/... {{.CLI_ARGS}}
 
+  "simulate:player":
+    desc: "Simulate another player in a game (usage: task simulate:player -- <lobby-code> [player-name])"
+    deps: [cli:build]
+    cmds:
+      - ./scripts/simulate-player.sh {{.CLI_ARGS}}
+
   check:
     desc: Run all CI checks (fmt, lint, test)
     cmds:

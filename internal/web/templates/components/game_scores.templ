@@ -1,40 +1,92 @@
 package components
 
-import "github.com/mcoot/crosswordgame-go2/internal/model"
+import (
+	"github.com/mcoot/crosswordgame-go2/internal/model"
+	"strconv"
+)
 
 // GameScoresData holds data for rendering scores
-// We need to pass this separately since Game doesn't contain BoardScores directly
 type GameScoresData struct {
-	Scores []model.BoardScore
-	Winner model.PlayerID
+	Scores      []model.BoardScore
+	Winner      model.PlayerID
+	PlayerNames map[model.PlayerID]string
+	AllBoards   map[model.PlayerID]*model.Board
+	GridSize    int
 }
 
-templ GameScores(game *model.Game) {
-	<div class="card">
-		<h3>Final Scores</h3>
-		<p class="text-muted">Scores will be displayed here after the game ends.</p>
-		// Note: Actual scores need to be passed from the handler
-		// This is a placeholder - the real implementation should render BoardScores
-	</div>
+// getPlayerName returns the display name for a player, falling back to ID
+func getPlayerName(playerNames map[model.PlayerID]string, playerID model.PlayerID) string {
+	if name, ok := playerNames[playerID]; ok && name != "" {
+		return name
+	}
+	return string(playerID)
 }
 
 templ GameScoresWithData(data GameScoresData) {
-	<div class="scores">
-		for _, score := range data.Scores {
-			<div class={ "score-card", templ.KV("winner", score.PlayerID == data.Winner) }>
-				<div class="score-header">
-					<span class="player-name">{ string(score.PlayerID) }</span>
-					<span class="score-total">{ intToString(score.TotalScore) }</span>
-				</div>
-				if len(score.Words) > 0 {
-					<ul class="word-list">
-						for _, word := range score.Words {
-							<li>{ word.Word } ({ intToString(word.Score) } pts)</li>
-						}
-					</ul>
-				}
+	<div class="scoring-results">
+		<h2 class="scoring-title">Game Complete!</h2>
+		if data.Winner != "" {
+			<div class="winner-announcement">
+				<span class="winner-label">Winner:</span>
+				<span class="winner-name">{ getPlayerName(data.PlayerNames, data.Winner) }</span>
+			</div>
+		} else if len(data.Scores) > 1 && data.Scores[0].TotalScore == data.Scores[1].TotalScore {
+			<div class="winner-announcement tie">
+				<span class="winner-label">It's a tie!</span>
 			</div>
 		}
+
+		<div class="score-cards">
+			for i, score := range data.Scores {
+				<div class={ "score-card", templ.KV("winner", score.PlayerID == data.Winner), templ.KV("first-place", i == 0 && data.Winner != "") }>
+					<div class="score-card-header">
+						<div class="player-info">
+							if i == 0 && data.Winner != "" {
+								<span class="rank-badge">🏆</span>
+							} else if i == 0 {
+								<span class="rank-badge">🥇</span>
+							} else if i == 1 {
+								<span class="rank-badge">🥈</span>
+							} else if i == 2 {
+								<span class="rank-badge">🥉</span>
+							}
+							<span class="player-name">{ getPlayerName(data.PlayerNames, score.PlayerID) }</span>
+						</div>
+						<span class="score-total">{ intToString(score.TotalScore) } pts</span>
+					</div>
+
+					// Show the player's board
+					if board, ok := data.AllBoards[score.PlayerID]; ok {
+						<div class={ "score-board", "grid-" + strconv.Itoa(data.GridSize) }>
+							for row := 0; row < board.Size; row++ {
+								for col := 0; col < board.Size; col++ {
+									<div class="score-cell">{ string(board.Cells[row][col]) }</div>
+								}
+							}
+						</div>
+					}
+
+					// Show words found
+					if len(score.Words) > 0 {
+						<div class="words-found">
+							<h4>Words Found ({ intToString(len(score.Words)) })</h4>
+							<div class="word-chips">
+								for _, word := range score.Words {
+									<span class={ "word-chip", templ.KV("full-line", word.Length == data.GridSize) }>
+										{ word.Word }
+										<span class="word-score">+{ intToString(word.Score) }</span>
+									</span>
+								}
+							</div>
+						</div>
+					} else {
+						<div class="words-found">
+							<p class="no-words">No valid words found</p>
+						</div>
+					}
+				</div>
+			}
+		</div>
 	</div>
 }
 

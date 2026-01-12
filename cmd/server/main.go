@@ -49,6 +49,7 @@ func main() {
 		LobbyController: app.LobbyController,
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
+		HubManager:      hubManager,
 	})
 
 	// Create web router
@@ -58,6 +59,7 @@ func main() {
 		LobbyController: app.LobbyController,
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
+		ScoringService:  app.ScoringService,
 		HubManager:      hubManager,
 		StaticDir:       staticDir,
 	})

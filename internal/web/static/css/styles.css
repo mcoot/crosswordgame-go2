@@ -501,23 +501,175 @@ select.input {
   border-color: var(--color-primary);
 }
 
-/* Scores */
-.scores {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.score-card {
+/* Scoring Results */
+.scoring-results {
   padding: 1rem;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
 }
 
-.score-card.winner {
+.scoring-title {
+  text-align: center;
+  margin-bottom: 1rem;
+  color: var(--color-text);
+}
+
+.winner-announcement {
+  text-align: center;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-radius: var(--radius);
+}
+
+.winner-announcement.tie {
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+}
+
+.winner-label {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  margin-right: 0.5rem;
+}
+
+.winner-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #854d0e;
+}
+
+.score-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.score-card {
+  padding: 1.5rem;
+  background-color: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.score-card.winner,
+.score-card.first-place {
   border-color: var(--color-success);
   background-color: #f0fdf4;
+}
+
+.score-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rank-badge {
+  font-size: 1.5rem;
+}
+
+.player-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.score-total {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* Score board (mini board display) */
+.score-board {
+  display: grid;
+  gap: 2px;
+  background-color: var(--color-border);
+  padding: 2px;
+  border-radius: 4px;
+  width: fit-content;
+  margin: 0 auto 1rem auto;
+}
+
+.score-board.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.score-board.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.score-board.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.score-board.grid-5 { grid-template-columns: repeat(5, 1fr); }
+.score-board.grid-6 { grid-template-columns: repeat(6, 1fr); }
+.score-board.grid-7 { grid-template-columns: repeat(7, 1fr); }
+
+.score-cell {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 600;
+  background-color: var(--color-surface);
+}
+
+/* Words found section */
+.words-found {
+  margin-top: 1rem;
+}
+
+.words-found h4 {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.word-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.word-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  font-size: 0.875rem;
+}
+
+.word-chip.full-line {
+  background-color: #dbeafe;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.word-score {
+  font-weight: 600;
+  color: var(--color-success);
+  font-size: 0.75rem;
+}
+
+.no-words {
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Old styles for backwards compatibility */
+.scores {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .score-header {
@@ -525,12 +677,6 @@ select.input {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
-}
-
-.score-total {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--color-primary);
 }
 
 .word-list {

@@ -134,6 +134,7 @@ func startTestServer(t *testing.T) *testServer {
 		LobbyController: app.LobbyController,
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
+		HubManager:      hubManager,
 	})
 
 	webRouter := web.NewRouter(web.RouterConfig{
@@ -142,6 +143,7 @@ func startTestServer(t *testing.T) *testServer {
 		LobbyController: app.LobbyController,
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
+		ScoringService:  app.ScoringService,
 		HubManager:      hubManager,
 		StaticDir:       filepath.Join(projectRoot, "internal/web/static"),
 	})

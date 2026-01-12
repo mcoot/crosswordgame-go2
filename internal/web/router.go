@@ -10,6 +10,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
+	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
 	"github.com/mcoot/crosswordgame-go2/internal/web/handler"
 	"github.com/mcoot/crosswordgame-go2/internal/web/middleware"
 	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
@@ -22,6 +23,7 @@ type RouterConfig struct {
 	LobbyController *lobby.Controller
 	GameController  *game.Controller
 	BoardService    *board.Service
+	ScoringService  *scoring.Service
 	HubManager      *sse.HubManager
 	StaticDir       string // Path to static files directory
 }
@@ -51,7 +53,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	homeHandler := handler.NewHomeHandler()
 	authHandler := handler.NewAuthHandler(cfg.AuthService)
 	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.AuthService, hubManager)
-	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, hubManager)
+	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.ScoringService, hubManager)
 
 	// Static files
 	if cfg.StaticDir != "" {

@@ -36,6 +36,13 @@ func (rw *ResponseWriter) Size() int {
 	return rw.size
 }
 
+// Flush implements http.Flusher for SSE support
+func (rw *ResponseWriter) Flush() {
+	if flusher, ok := rw.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 // Logging creates logging middleware that logs HTTP requests
 func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

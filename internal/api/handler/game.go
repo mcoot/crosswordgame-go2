@@ -14,6 +14,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
+	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
 )
 
 // GameHandler handles game-related endpoints
@@ -21,6 +22,7 @@ type GameHandler struct {
 	lobbyController *lobby.Controller
 	gameController  *game.Controller
 	boardService    *board.Service
+	hubManager      *sse.HubManager
 }
 
 // NewGameHandler creates a new game handler
@@ -28,12 +30,22 @@ func NewGameHandler(
 	lobbyController *lobby.Controller,
 	gameController *game.Controller,
 	boardService *board.Service,
+	hubManager *sse.HubManager,
 ) *GameHandler {
 	return &GameHandler{
 		lobbyController: lobbyController,
 		gameController:  gameController,
 		boardService:    boardService,
+		hubManager:      hubManager,
 	}
+}
+
+// broadcaster creates a broadcaster for SSE events if hub manager is available
+func (h *GameHandler) broadcaster() *sse.Broadcaster {
+	if h.hubManager == nil {
+		return nil
+	}
+	return sse.NewBroadcaster(h.hubManager)
 }
 
 // Start handles POST /api/v1/lobbies/{code}/game
@@ -45,6 +57,11 @@ func (h *GameHandler) Start(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		WriteError(w, err)
 		return
+	}
+
+	// Broadcast game started to SSE clients
+	if b := h.broadcaster(); b != nil {
+		b.BroadcastGameStarted(code)
 	}
 
 	resp := response.GameStateFromModel(g, nil, nil, nil, "")
@@ -159,6 +176,11 @@ func (h *GameHandler) Announce(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast letter announced to SSE clients
+	if b := h.broadcaster(); b != nil {
+		b.BroadcastLetterAnnounced(r.Context(), g, code)
+	}
+
 	resp := response.AnnounceResponse{
 		State:         string(g.State),
 		CurrentLetter: string(g.CurrentLetter),
@@ -215,6 +237,19 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 		GameComplete: g.State == model.GameStateScoring,
 	}
 
+	// Broadcast placement update to SSE clients
+	if b := h.broadcaster(); b != nil {
+		b.BroadcastPlacementUpdate(r.Context(), g, code, player.ID)
+
+		// Broadcast turn or game completion
+		switch g.State {
+		case model.GameStateAnnouncing:
+			b.BroadcastTurnComplete(r.Context(), g, code)
+		case model.GameStateScoring:
+			b.BroadcastGameComplete(code)
+		}
+	}
+
 	// If turn advanced, include next announcer
 	if g.State == model.GameStateAnnouncing {
 		resp.NextAnnouncer = string(g.CurrentAnnouncer())
@@ -251,6 +286,11 @@ func (h *GameHandler) Abandon(w http.ResponseWriter, r *http.Request) {
 	if err := h.lobbyController.AbandonGame(r.Context(), code, player.ID); err != nil {
 		WriteError(w, err)
 		return
+	}
+
+	// Broadcast game abandoned to SSE clients
+	if b := h.broadcaster(); b != nil {
+		b.BroadcastGameAbandoned(code)
 	}
 
 	response.NoContent(w)

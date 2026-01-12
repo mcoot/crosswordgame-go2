@@ -11,6 +11,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
+	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
 	"github.com/mcoot/crosswordgame-go2/internal/web/middleware"
 	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
 	"github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
@@ -22,16 +23,18 @@ type GameHandler struct {
 	lobbyController *lobby.Controller
 	gameController  *game.Controller
 	boardService    *board.Service
+	scoringService  *scoring.Service
 	hubManager      *sse.HubManager
 	broadcaster     *sse.Broadcaster
 }
 
 // NewGameHandler creates a new GameHandler
-func NewGameHandler(lobbyController *lobby.Controller, gameController *game.Controller, boardService *board.Service, hubManager *sse.HubManager) *GameHandler {
+func NewGameHandler(lobbyController *lobby.Controller, gameController *game.Controller, boardService *board.Service, scoringService *scoring.Service, hubManager *sse.HubManager) *GameHandler {
 	return &GameHandler{
 		lobbyController: lobbyController,
 		gameController:  gameController,
 		boardService:    boardService,
+		scoringService:  scoringService,
 		hubManager:      hubManager,
 		broadcaster:     sse.NewBroadcaster(hubManager),
 	}
@@ -94,14 +97,29 @@ func (h *GameHandler) View(w http.ResponseWriter, r *http.Request) {
 	// Check if player has placed this turn
 	hasPlaced := g.Placements[player.ID]
 
-	// For spectators, get all boards
+	// For spectators or scoring, get all boards
 	var allBoards map[model.PlayerID]*model.Board
+	var boardsList []*model.Board
 	if isSpectator || g.State == model.GameStateScoring {
-		boards, _ := h.boardService.GetBoardsForGame(r.Context(), g.ID)
+		boardsList, _ = h.boardService.GetBoardsForGame(r.Context(), g.ID)
 		allBoards = make(map[model.PlayerID]*model.Board)
-		for _, b := range boards {
+		for _, b := range boardsList {
 			allBoards[b.PlayerID] = b
 		}
+	}
+
+	// Calculate scores if game is complete
+	var scores []model.BoardScore
+	var winner model.PlayerID
+	if g.State == model.GameStateScoring && len(boardsList) > 0 {
+		scores = h.scoringService.ScoreMultipleBoards(boardsList)
+		winner = h.scoringService.DetermineWinner(scores)
+	}
+
+	// Build player names map from lobby members
+	playerNames := make(map[model.PlayerID]string)
+	for _, m := range lob.Members {
+		playerNames[m.Player.ID] = m.Player.DisplayName
 	}
 
 	flash := middleware.GetFlash(r.Context())
@@ -119,6 +137,9 @@ func (h *GameHandler) View(w http.ResponseWriter, r *http.Request) {
 		HasPlaced:   hasPlaced,
 		IsSpectator: isSpectator || !isInGame,
 		AllBoards:   allBoards,
+		Scores:      scores,
+		Winner:      winner,
+		PlayerNames: playerNames,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

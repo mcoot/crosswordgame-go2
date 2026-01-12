@@ -8,3 +8,4 @@
     - Agents should refer to active and in progress specs when needed to understand prior changes or parts of the architecture
 - Always use `task` when trying to run standard commands like building, testing, linting etc.
     - If we have a new feature which should be come a standard command, we should add it to the taskfile
+    - Always use standard modes of interaction. For example, using our cli tool (via task), rather than curl

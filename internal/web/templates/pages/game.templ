@@ -15,6 +15,10 @@ type GameData struct {
 	HasPlaced   bool
 	IsSpectator bool
 	AllBoards   map[model.PlayerID]*model.Board // For spectators or after game
+	// Scoring data (populated when game state is scoring)
+	Scores      []model.BoardScore
+	Winner      model.PlayerID
+	PlayerNames map[model.PlayerID]string // Map of player IDs to display names
 }
 
 templ Game(data GameData) {
@@ -53,7 +57,13 @@ templ Game(data GameData) {
 
 				if data.Game.State == model.GameStateScoring {
 					<div id="game-scores">
-						@components.GameScores(data.Game)
+						@components.GameScoresWithData(components.GameScoresData{
+							Scores:      data.Scores,
+							Winner:      data.Winner,
+							PlayerNames: data.PlayerNames,
+							AllBoards:   data.AllBoards,
+							GridSize:    data.Game.GridSize,
+						})
 					</div>
 				}
 			</div>
