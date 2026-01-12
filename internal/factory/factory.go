@@ -3,6 +3,7 @@ package factory
 import (
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/clock"
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/random"
+	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
 	"github.com/mcoot/crosswordgame-go2/internal/services/dictionary"
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
@@ -10,6 +11,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
 	"github.com/mcoot/crosswordgame-go2/internal/storage"
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
+	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
 )
 
 // App contains all wired application components
@@ -27,6 +29,8 @@ type App struct {
 	ScoringService    *scoring.Service
 	GameController    *game.Controller
 	LobbyController   *lobby.Controller
+	AuthService       *auth.Service
+	HubManager        *sse.HubManager
 }
 
 // Config holds configuration for the application factory
@@ -34,6 +38,9 @@ type Config struct {
 	// DictionaryPath is the path to the dictionary file (optional)
 	// If empty, dictionary must be loaded manually
 	DictionaryPath string
+	// AuthConfig holds configuration for the auth service (optional)
+	// If zero value, defaults to auth.DefaultConfig()
+	AuthConfig auth.Config
 }
 
 // New creates a new application with all dependencies wired
@@ -45,17 +52,25 @@ func New(cfg Config) *App {
 	clk := clock.New()
 	rnd := random.New()
 
-	return newWithDependencies(store, clk, rnd)
+	// Use default auth config if not provided
+	authCfg := cfg.AuthConfig
+	if authCfg.SessionDuration == 0 {
+		authCfg = auth.DefaultConfig()
+	}
+
+	return newWithDependencies(store, clk, rnd, authCfg)
 }
 
 // newWithDependencies creates an App with the given dependencies (useful for testing)
-func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Random) *App {
+func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Random, authCfg auth.Config) *App {
 	// Create services
 	dictService := dictionary.New(store)
 	boardService := board.New(store)
 	scoringService := scoring.New(dictService)
 	gameController := game.NewController(store, boardService, scoringService, clk, rnd)
 	lobbyController := lobby.NewController(store, gameController, clk, rnd)
+	authService := auth.New(store, clk, authCfg)
+	hubManager := sse.NewHubManager()
 
 	return &App{
 		Storage:           store,
@@ -66,5 +81,7 @@ func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Rand
 		ScoringService:    scoringService,
 		GameController:    gameController,
 		LobbyController:   lobbyController,
+		AuthService:       authService,
+		HubManager:        hubManager,
 	}
 }

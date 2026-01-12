@@ -11,9 +11,7 @@ import (
 
 	"github.com/mcoot/crosswordgame-go2/internal/api"
 	"github.com/mcoot/crosswordgame-go2/internal/factory"
-	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
 	"github.com/mcoot/crosswordgame-go2/internal/web"
-	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
 )
 
 func main() {
@@ -33,34 +31,28 @@ func main() {
 		logger.Warn("could not load dictionary", slog.String("error", err.Error()))
 	}
 
-	// Create auth service
-	authService := auth.New(app.Storage, app.Clock, auth.DefaultConfig())
-
-	// Create SSE hub manager
-	hubManager := sse.NewHubManager()
-
 	// Find static files directory
 	staticDir := findStaticDir()
 
 	// Create API router
 	apiRouter := api.NewRouter(api.RouterConfig{
 		Logger:          logger,
-		AuthService:     authService,
+		AuthService:     app.AuthService,
 		LobbyController: app.LobbyController,
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
-		HubManager:      hubManager,
+		HubManager:      app.HubManager,
 	})
 
 	// Create web router
 	webRouter := web.NewRouter(web.RouterConfig{
 		Logger:          logger,
-		AuthService:     authService,
+		AuthService:     app.AuthService,
 		LobbyController: app.LobbyController,
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
 		ScoringService:  app.ScoringService,
-		HubManager:      hubManager,
+		HubManager:      app.HubManager,
 		StaticDir:       staticDir,
 	})
 

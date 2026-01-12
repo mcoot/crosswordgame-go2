@@ -14,14 +14,8 @@ import (
 
 	"github.com/mcoot/crosswordgame-go2/internal/api"
 	"github.com/mcoot/crosswordgame-go2/internal/api/response"
-	"github.com/mcoot/crosswordgame-go2/internal/dependencies/clock"
-	"github.com/mcoot/crosswordgame-go2/internal/dependencies/random"
+	"github.com/mcoot/crosswordgame-go2/internal/factory"
 	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
-	"github.com/mcoot/crosswordgame-go2/internal/services/board"
-	"github.com/mcoot/crosswordgame-go2/internal/services/dictionary"
-	"github.com/mcoot/crosswordgame-go2/internal/services/game"
-	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
-	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
 )
 
@@ -36,31 +30,25 @@ func newTestServer(t *testing.T) *testServer {
 	t.Helper()
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	storage := memory.New()
-	clk := clock.New()
-	rnd := random.New()
 
-	authService := auth.New(storage, clk, auth.DefaultConfig())
-	boardService := board.New(storage)
-	dictService := dictionary.New(storage)
-	err := dictService.LoadFromFile(t.Context(), "../../data/words.txt")
+	// API tests are integration tests - use production factory with real random/clock
+	app := factory.New(factory.Config{})
+	err := app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
 	require.NoError(t, err)
-	scoringService := scoring.New(dictService)
-	gameController := game.NewController(storage, boardService, scoringService, clk, rnd)
-	lobbyController := lobby.NewController(storage, gameController, clk, rnd)
 
 	router := api.NewRouter(api.RouterConfig{
 		Logger:          logger,
-		AuthService:     authService,
-		LobbyController: lobbyController,
-		GameController:  gameController,
-		BoardService:    boardService,
+		AuthService:     app.AuthService,
+		LobbyController: app.LobbyController,
+		GameController:  app.GameController,
+		BoardService:    app.BoardService,
+		HubManager:      app.HubManager,
 	})
 
 	return &testServer{
 		handler: router,
-		storage: storage,
-		auth:    authService,
+		storage: app.Storage.(*memory.Storage),
+		auth:    app.AuthService,
 	}
 }
 
