@@ -124,7 +124,7 @@ func startTestServer(t *testing.T) *testServer {
 
 	// Create services
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
-	authService := auth.New(app.Storage, app.Clock, auth.DefaultConfig())
+	authService := auth.New(app.Storage, app.Clock, auth.DefaultConfig(), logger)
 	hubManager := sse.NewHubManager()
 
 	// Create routers

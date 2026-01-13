@@ -13,6 +13,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/dictionary"
 	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
+	"github.com/mcoot/crosswordgame-go2/internal/testutil"
 )
 
 type ControllerSuite struct {
@@ -33,12 +34,13 @@ func TestControllerSuite(t *testing.T) {
 
 func (s *ControllerSuite) SetupTest() {
 	s.storage = memory.New()
-	s.boardService = board.New(s.storage)
-	s.dictService = dictionary.New(s.storage)
+	logger := testutil.NopLogger()
+	s.boardService = board.New(s.storage, logger)
+	s.dictService = dictionary.New(s.storage, logger)
 	s.scoringService = scoring.New(s.dictService)
 	s.clock = mocks.NewMockClock(time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC))
 	s.random = mocks.NewMockRandom()
-	s.controller = NewController(s.storage, s.boardService, s.scoringService, s.clock, s.random)
+	s.controller = NewController(s.storage, s.boardService, s.scoringService, s.clock, s.random, logger)
 	s.ctx = context.Background()
 
 	// Load dictionary for scoring tests

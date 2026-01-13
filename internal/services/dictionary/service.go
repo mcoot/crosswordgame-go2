@@ -3,6 +3,7 @@ package dictionary
 import (
 	"bufio"
 	"context"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -14,6 +15,7 @@ import (
 // Service provides dictionary/word validation functionality
 type Service struct {
 	storage storage.Storage
+	logger  *slog.Logger
 
 	mu     sync.RWMutex
 	words  map[string]struct{}
@@ -21,9 +23,10 @@ type Service struct {
 }
 
 // New creates a new DictionaryService
-func New(storage storage.Storage) *Service {
+func New(storage storage.Storage, logger *slog.Logger) *Service {
 	return &Service{
 		storage: storage,
+		logger:  logger,
 		words:   make(map[string]struct{}),
 	}
 }
@@ -32,15 +35,28 @@ func New(storage storage.Storage) *Service {
 func (s *Service) LoadFromStorage(ctx context.Context) error {
 	words, err := s.storage.GetDictionaryWords(ctx)
 	if err != nil {
+		s.logger.Error("failed to load dictionary from storage",
+			slog.String("error", err.Error()),
+		)
 		return err
 	}
-	return s.loadWords(words)
+	if err := s.loadWords(words); err != nil {
+		return err
+	}
+	s.logger.Info("dictionary loaded from storage",
+		slog.Int("word_count", len(words)),
+	)
+	return nil
 }
 
 // LoadFromFile loads dictionary words from a file (one word per line)
 func (s *Service) LoadFromFile(ctx context.Context, path string) (err error) {
 	file, err := os.Open(path)
 	if err != nil {
+		s.logger.Error("failed to open dictionary file",
+			slog.String("path", path),
+			slog.String("error", err.Error()),
+		)
 		return err
 	}
 	defer func() {
@@ -58,15 +74,31 @@ func (s *Service) LoadFromFile(ctx context.Context, path string) (err error) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
+		s.logger.Error("failed to scan dictionary file",
+			slog.String("path", path),
+			slog.String("error", err.Error()),
+		)
 		return err
 	}
 
 	// Save to storage for future use
 	if err := s.storage.SaveDictionaryWords(ctx, words); err != nil {
+		s.logger.Error("failed to save dictionary to storage",
+			slog.String("error", err.Error()),
+		)
 		return err
 	}
 
-	return s.loadWords(words)
+	if err := s.loadWords(words); err != nil {
+		return err
+	}
+
+	s.logger.Info("dictionary loaded from file",
+		slog.String("path", path),
+		slog.Int("word_count", len(words)),
+	)
+
+	return nil
 }
 
 // LoadWords directly loads a slice of words (useful for testing)

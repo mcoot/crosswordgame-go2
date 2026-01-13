@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"log/slog"
 	"unicode"
 
 	"github.com/mcoot/crosswordgame-go2/internal/model"
@@ -11,12 +12,14 @@ import (
 // Service provides board operations
 type Service struct {
 	storage storage.Storage
+	logger  *slog.Logger
 }
 
 // New creates a new BoardService
-func New(storage storage.Storage) *Service {
+func New(storage storage.Storage, logger *slog.Logger) *Service {
 	return &Service{
 		storage: storage,
+		logger:  logger,
 	}
 }
 

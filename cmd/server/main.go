@@ -15,8 +15,8 @@ import (
 )
 
 func main() {
-	// Set up logging
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	// Set up logging with JSON output
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	slog.SetDefault(logger)
@@ -24,6 +24,7 @@ func main() {
 	// Create application factory
 	app := factory.New(factory.Config{
 		DictionaryPath: "data/words.txt",
+		Logger:         logger,
 	})
 
 	// Load dictionary

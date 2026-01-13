@@ -8,6 +8,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/model"
 	"github.com/mcoot/crosswordgame-go2/internal/services/dictionary"
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
+	"github.com/mcoot/crosswordgame-go2/internal/testutil"
 )
 
 type ServiceSuite struct {
@@ -22,7 +23,7 @@ func TestServiceSuite(t *testing.T) {
 
 func (s *ServiceSuite) SetupTest() {
 	storage := memory.New()
-	s.dictService = dictionary.New(storage)
+	s.dictService = dictionary.New(storage, testutil.NopLogger())
 	s.service = New(s.dictService)
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
+	"github.com/mcoot/crosswordgame-go2/internal/testutil"
 )
 
 type ControllerSuite struct {
@@ -32,13 +33,14 @@ func TestControllerSuite(t *testing.T) {
 
 func (s *ControllerSuite) SetupTest() {
 	s.storage = memory.New()
-	boardService := board.New(s.storage)
-	dictService := dictionary.New(s.storage)
+	logger := testutil.NopLogger()
+	boardService := board.New(s.storage, logger)
+	dictService := dictionary.New(s.storage, logger)
 	scoringService := scoring.New(dictService)
 	s.clock = mocks.NewMockClock(time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC))
 	s.random = mocks.NewMockRandom()
-	s.gameController = game.NewController(s.storage, boardService, scoringService, s.clock, s.random)
-	s.controller = NewController(s.storage, s.gameController, s.clock, s.random)
+	s.gameController = game.NewController(s.storage, boardService, scoringService, s.clock, s.random, logger)
+	s.controller = NewController(s.storage, s.gameController, s.clock, s.random, logger)
 	s.ctx = context.Background()
 
 	// Load dictionary

@@ -2,6 +2,7 @@ package lobby
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/clock"
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/random"
@@ -23,6 +24,7 @@ type Controller struct {
 	gameController *game.Controller
 	clock          clock.Clock
 	random         random.Random
+	logger         *slog.Logger
 }
 
 // NewController creates a new LobbyController
@@ -31,12 +33,14 @@ func NewController(
 	gameController *game.Controller,
 	clock clock.Clock,
 	random random.Random,
+	logger *slog.Logger,
 ) *Controller {
 	return &Controller{
 		storage:        storage,
 		gameController: gameController,
 		clock:          clock,
 		random:         random,
+		logger:         logger,
 	}
 }
 
@@ -76,8 +80,17 @@ func (c *Controller) CreateLobby(ctx context.Context, host model.Player) (*model
 	}
 
 	if err := c.storage.SaveLobby(ctx, lobby); err != nil {
+		c.logger.Error("failed to save lobby",
+			slog.String("lobby_code", string(code)),
+			slog.String("error", err.Error()),
+		)
 		return nil, err
 	}
+
+	c.logger.Info("lobby created",
+		slog.String("lobby_code", string(code)),
+		slog.String("host_id", string(host.ID)),
+	)
 
 	return lobby, nil
 }
@@ -113,7 +126,21 @@ func (c *Controller) JoinLobby(ctx context.Context, code model.LobbyCode, player
 	})
 	lobby.UpdatedAt = c.clock.Now()
 
-	return c.storage.SaveLobby(ctx, lobby)
+	if err := c.storage.SaveLobby(ctx, lobby); err != nil {
+		c.logger.Error("failed to save lobby after join",
+			slog.String("lobby_code", string(code)),
+			slog.String("error", err.Error()),
+		)
+		return err
+	}
+
+	c.logger.Info("player joined lobby",
+		slog.String("lobby_code", string(code)),
+		slog.String("player_id", string(player.ID)),
+		slog.String("role", string(role)),
+	)
+
+	return nil
 }
 
 // LeaveLobby removes a player from a lobby
@@ -145,6 +172,9 @@ func (c *Controller) LeaveLobby(ctx context.Context, code model.LobbyCode, playe
 		if lobby.CurrentGame != nil {
 			_ = c.gameController.AbandonGame(ctx, *lobby.CurrentGame)
 		}
+		c.logger.Info("lobby deleted (empty)",
+			slog.String("lobby_code", string(code)),
+		)
 		return c.storage.DeleteLobby(ctx, code)
 	}
 
@@ -166,6 +196,13 @@ func (c *Controller) LeaveLobby(ctx context.Context, code model.LobbyCode, playe
 	}
 
 	lobby.UpdatedAt = c.clock.Now()
+
+	c.logger.Info("player left lobby",
+		slog.String("lobby_code", string(code)),
+		slog.String("player_id", string(playerID)),
+		slog.Bool("was_host", wasHost),
+	)
+
 	return c.storage.SaveLobby(ctx, lobby)
 }
 
@@ -261,8 +298,18 @@ func (c *Controller) StartGame(ctx context.Context, code model.LobbyCode, reques
 	lobby.UpdatedAt = c.clock.Now()
 
 	if err := c.storage.SaveLobby(ctx, lobby); err != nil {
+		c.logger.Error("failed to save lobby after game start",
+			slog.String("lobby_code", string(code)),
+			slog.String("error", err.Error()),
+		)
 		return nil, err
 	}
+
+	c.logger.Info("game started in lobby",
+		slog.String("lobby_code", string(code)),
+		slog.String("game_id", string(g.ID)),
+		slog.Int("player_count", len(playerIDs)),
+	)
 
 	return g, nil
 }

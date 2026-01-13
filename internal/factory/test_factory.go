@@ -6,6 +6,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/mocks"
 	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
+	"github.com/mcoot/crosswordgame-go2/internal/testutil"
 )
 
 // TestApp extends App with test-specific helpers
@@ -22,8 +23,9 @@ func NewTestApp() *TestApp {
 	store := memory.New()
 	mockClock := mocks.NewMockClock(time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC))
 	mockRandom := mocks.NewMockRandom()
+	logger := testutil.NopLogger()
 
-	app := newWithDependencies(store, mockClock, mockRandom, auth.DefaultConfig())
+	app := newWithDependencies(store, mockClock, mockRandom, auth.DefaultConfig(), logger)
 
 	return &TestApp{
 		App:        app,

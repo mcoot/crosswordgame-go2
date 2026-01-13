@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	"log/slog"
 	"unicode"
 
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/clock"
@@ -19,6 +20,7 @@ type Controller struct {
 	scoringService *scoring.Service
 	clock          clock.Clock
 	random         random.Random
+	logger         *slog.Logger
 }
 
 // NewController creates a new GameController
@@ -28,6 +30,7 @@ func NewController(
 	scoringService *scoring.Service,
 	clock clock.Clock,
 	random random.Random,
+	logger *slog.Logger,
 ) *Controller {
 	return &Controller{
 		storage:        storage,
@@ -35,6 +38,7 @@ func NewController(
 		scoringService: scoringService,
 		clock:          clock,
 		random:         random,
+		logger:         logger,
 	}
 }
 
@@ -70,8 +74,19 @@ func (c *Controller) CreateGame(ctx context.Context, lobbyCode model.LobbyCode, 
 	}
 
 	if err := c.storage.SaveGame(ctx, game); err != nil {
+		c.logger.Error("failed to save game",
+			slog.String("game_id", string(game.ID)),
+			slog.String("error", err.Error()),
+		)
 		return nil, err
 	}
+
+	c.logger.Info("game created",
+		slog.String("game_id", string(gameID)),
+		slog.String("lobby_code", string(lobbyCode)),
+		slog.Int("player_count", len(players)),
+		slog.Int("grid_size", gridSize),
+	)
 
 	return game, nil
 }
@@ -182,6 +197,11 @@ func (c *Controller) advanceTurn(ctx context.Context, game *model.Game) error {
 	if game.CurrentTurn >= game.TotalTurns() {
 		// Game complete - move to scoring
 		game.State = model.GameStateScoring
+		c.logger.Info("game completed",
+			slog.String("game_id", string(game.ID)),
+			slog.String("lobby_code", string(game.LobbyCode)),
+			slog.Int("total_turns", game.CurrentTurn),
+		)
 	} else {
 		// Next turn - rotate announcer
 		game.AnnouncerIdx = (game.AnnouncerIdx + 1) % len(game.Players)
@@ -208,6 +228,11 @@ func (c *Controller) AbandonGame(ctx context.Context, gameID model.GameID) error
 
 	game.State = model.GameStateAbandoned
 	game.UpdatedAt = c.clock.Now()
+
+	c.logger.Info("game abandoned",
+		slog.String("game_id", string(gameID)),
+		slog.String("lobby_code", string(game.LobbyCode)),
+	)
 
 	return c.storage.SaveGame(ctx, game)
 }

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -35,6 +36,7 @@ type Session struct {
 type Service struct {
 	storage storage.Storage
 	clock   clock.Clock
+	logger  *slog.Logger
 
 	mu       sync.RWMutex
 	sessions map[string]*Session
@@ -55,13 +57,14 @@ func DefaultConfig() Config {
 }
 
 // New creates a new AuthService
-func New(storage storage.Storage, clock clock.Clock, cfg Config) *Service {
+func New(storage storage.Storage, clock clock.Clock, cfg Config, logger *slog.Logger) *Service {
 	if cfg.SessionDuration == 0 {
 		cfg.SessionDuration = DefaultConfig().SessionDuration
 	}
 	return &Service{
 		storage:         storage,
 		clock:           clock,
+		logger:          logger,
 		sessions:        make(map[string]*Session),
 		sessionDuration: cfg.SessionDuration,
 	}
@@ -80,8 +83,16 @@ func (s *Service) CreateGuestPlayer(ctx context.Context, displayName string) (*S
 	}
 
 	if err := s.storage.SavePlayer(ctx, player); err != nil {
+		s.logger.Error("failed to save guest player",
+			slog.String("player_id", string(playerID)),
+			slog.String("error", err.Error()),
+		)
 		return nil, err
 	}
+
+	s.logger.Info("guest player created",
+		slog.String("player_id", string(playerID)),
+	)
 
 	return s.createSession(player)
 }
@@ -122,12 +133,24 @@ func (s *Service) RegisterPlayer(ctx context.Context, username, password, displa
 	}
 
 	if err := s.storage.SavePlayer(ctx, player); err != nil {
+		s.logger.Error("failed to save player during registration",
+			slog.String("player_id", string(playerID)),
+			slog.String("error", err.Error()),
+		)
 		return nil, err
 	}
 
 	if err := s.storage.SaveRegisteredPlayer(ctx, registeredPlayer); err != nil {
+		s.logger.Error("failed to save registered player",
+			slog.String("player_id", string(playerID)),
+			slog.String("error", err.Error()),
+		)
 		return nil, err
 	}
+
+	s.logger.Info("player registered",
+		slog.String("player_id", string(playerID)),
+	)
 
 	return s.createSession(player)
 }
@@ -137,12 +160,18 @@ func (s *Service) Login(ctx context.Context, username, password string) (*Sessio
 	rp, err := s.storage.GetRegisteredPlayerByUsername(ctx, username)
 	if err != nil {
 		if errors.Is(err, model.ErrPlayerNotFound) {
+			s.logger.Warn("login failed: user not found",
+				slog.String("username", username),
+			)
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(rp.PasswordHash), []byte(password)); err != nil {
+		s.logger.Warn("login failed: invalid password",
+			slog.String("username", username),
+		)
 		return nil, ErrInvalidCredentials
 	}
 
@@ -150,6 +179,10 @@ func (s *Service) Login(ctx context.Context, username, password string) (*Sessio
 	if err != nil {
 		return nil, err
 	}
+
+	s.logger.Info("login successful",
+		slog.String("player_id", string(player.ID)),
+	)
 
 	return s.createSession(player)
 }

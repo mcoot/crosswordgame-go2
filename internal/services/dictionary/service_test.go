@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
+	"github.com/mcoot/crosswordgame-go2/internal/testutil"
 )
 
 type ServiceSuite struct {
@@ -22,7 +23,7 @@ func TestServiceSuite(t *testing.T) {
 
 func (s *ServiceSuite) SetupTest() {
 	s.storage = memory.New()
-	s.service = New(s.storage)
+	s.service = New(s.storage, testutil.NopLogger())
 	s.ctx = context.Background()
 }
 

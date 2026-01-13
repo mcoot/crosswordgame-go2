@@ -9,6 +9,7 @@ import (
 
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/mocks"
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
+	"github.com/mcoot/crosswordgame-go2/internal/testutil"
 )
 
 type ServiceSuite struct {
@@ -26,7 +27,7 @@ func TestServiceSuite(t *testing.T) {
 func (s *ServiceSuite) SetupTest() {
 	s.storage = memory.New()
 	s.clock = mocks.NewMockClock(time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC))
-	s.service = New(s.storage, s.clock, DefaultConfig())
+	s.service = New(s.storage, s.clock, DefaultConfig(), testutil.NopLogger())
 	s.ctx = context.Background()
 }
 

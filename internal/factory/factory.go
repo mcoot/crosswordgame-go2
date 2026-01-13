@@ -1,6 +1,9 @@
 package factory
 
 import (
+	"io"
+	"log/slog"
+
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/clock"
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/random"
 	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
@@ -41,6 +44,9 @@ type Config struct {
 	// AuthConfig holds configuration for the auth service (optional)
 	// If zero value, defaults to auth.DefaultConfig()
 	AuthConfig auth.Config
+	// Logger is the application logger (optional)
+	// If nil, a no-op logger is used
+	Logger *slog.Logger
 }
 
 // New creates a new application with all dependencies wired
@@ -58,18 +64,24 @@ func New(cfg Config) *App {
 		authCfg = auth.DefaultConfig()
 	}
 
-	return newWithDependencies(store, clk, rnd, authCfg)
+	// Use no-op logger if not provided
+	logger := cfg.Logger
+	if logger == nil {
+		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
+	}
+
+	return newWithDependencies(store, clk, rnd, authCfg, logger)
 }
 
 // newWithDependencies creates an App with the given dependencies (useful for testing)
-func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Random, authCfg auth.Config) *App {
+func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Random, authCfg auth.Config, logger *slog.Logger) *App {
 	// Create services
-	dictService := dictionary.New(store)
-	boardService := board.New(store)
+	dictService := dictionary.New(store, logger)
+	boardService := board.New(store, logger)
 	scoringService := scoring.New(dictService)
-	gameController := game.NewController(store, boardService, scoringService, clk, rnd)
-	lobbyController := lobby.NewController(store, gameController, clk, rnd)
-	authService := auth.New(store, clk, authCfg)
+	gameController := game.NewController(store, boardService, scoringService, clk, rnd, logger)
+	lobbyController := lobby.NewController(store, gameController, clk, rnd, logger)
+	authService := auth.New(store, clk, authCfg, logger)
 	hubManager := sse.NewHubManager()
 
 	return &App{
