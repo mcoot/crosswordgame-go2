@@ -1,0 +1,70 @@
+package components
+
+// SSEStatus renders a subtle connection status indicator.
+// It shows a small dot that's nearly invisible when connected,
+// but becomes more prominent when the SSE connection is lost.
+templ SSEStatus() {
+	<div id="sse-status" class="sse-status connected">
+		<span class="sse-dot"></span>
+		<span class="sse-text">Reconnecting...</span>
+	</div>
+	<script>
+		(function() {
+			const status = document.getElementById('sse-status');
+			if (!status) return;
+
+			// Track connection state
+			let isConnected = false;
+			let reconnectTimeout = null;
+
+			function setConnected() {
+				isConnected = true;
+				if (reconnectTimeout) {
+					clearTimeout(reconnectTimeout);
+					reconnectTimeout = null;
+				}
+				status.className = 'sse-status connected';
+				status.querySelector('.sse-text').textContent = '';
+			}
+
+			function setDisconnected() {
+				isConnected = false;
+				status.className = 'sse-status disconnected';
+				status.querySelector('.sse-text').textContent = 'Connection lost';
+			}
+
+			function setReconnecting() {
+				status.className = 'sse-status reconnecting';
+				status.querySelector('.sse-text').textContent = 'Reconnecting...';
+			}
+
+			// Listen to HTMX SSE events
+			document.body.addEventListener('htmx:sseOpen', function() {
+				setConnected();
+			});
+
+			document.body.addEventListener('htmx:sseError', function() {
+				// On error, show reconnecting state briefly then disconnected
+				setReconnecting();
+				reconnectTimeout = setTimeout(function() {
+					if (!isConnected) {
+						setDisconnected();
+					}
+				}, 5000);
+			});
+
+			// The 'connected' SSE event from our server indicates successful connection
+			document.body.addEventListener('sse:connected', function() {
+				setConnected();
+			});
+
+			// Also handle the native EventSource events if exposed
+			document.body.addEventListener('htmx:sseBeforeMessage', function() {
+				// Any message means we're connected
+				if (!isConnected) {
+					setConnected();
+				}
+			});
+		})();
+	</script>
+}

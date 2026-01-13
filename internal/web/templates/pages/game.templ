@@ -35,6 +35,8 @@ templ Game(data GameData) {
 			<div hx-get={ "/lobby/" + string(data.Lobby.Code) } hx-trigger="sse:game-abandoned" hx-target="body" hx-swap="innerHTML" hx-push-url="true" style="display:none;"></div>
 			<div hx-get={ "/lobby/" + string(data.Lobby.Code) } hx-trigger="sse:game-dismissed" hx-target="body" hx-swap="innerHTML" hx-push-url="true" style="display:none;"></div>
 			<div hx-get={ "/lobby/" + string(data.Lobby.Code) + "/game" } hx-trigger="sse:refresh" hx-target="body" hx-swap="innerHTML" style="display:none;"></div>
+			<!-- SSE connection status indicator -->
+			@components.SSEStatus()
 			<div class="game-main">
 				<div id="game-status">
 					@components.GameStatus(data.Game, data.IsAnnouncer, data.HasPlaced)

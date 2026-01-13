@@ -719,6 +719,87 @@ select.input {
   display: none;
 }
 
+/* Subtle SSE connection indicator */
+.sse-status {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+/* Connected state - very subtle, nearly invisible */
+.sse-status.connected {
+  opacity: 0.3;
+  background-color: transparent;
+  color: var(--color-text-muted);
+}
+
+.sse-status.connected:hover {
+  opacity: 0.7;
+}
+
+.sse-status.connected .sse-dot {
+  background-color: var(--color-success);
+}
+
+.sse-status.connected .sse-text {
+  display: none;
+}
+
+/* Disconnected state - more visible with animation */
+.sse-status.disconnected {
+  opacity: 1;
+  background-color: #fee2e2;
+  color: var(--color-error);
+  box-shadow: var(--shadow);
+}
+
+.sse-status.disconnected .sse-dot {
+  background-color: var(--color-error);
+  animation: pulse 1.5s infinite;
+}
+
+.sse-status.disconnected .sse-text {
+  display: inline;
+}
+
+/* Reconnecting state */
+.sse-status.reconnecting {
+  opacity: 1;
+  background-color: #fef3c7;
+  color: var(--color-warning);
+  box-shadow: var(--shadow);
+}
+
+.sse-status.reconnecting .sse-dot {
+  background-color: var(--color-warning);
+  animation: pulse 0.75s infinite;
+}
+
+.sse-status.reconnecting .sse-text {
+  display: inline;
+}
+
+.sse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Legacy connection status (for backwards compatibility) */
 .connection-status {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
