@@ -173,7 +173,9 @@ func (h *GameHandler) Start(w http.ResponseWriter, r *http.Request) {
 	// Broadcast game started to all lobby clients
 	h.broadcaster.BroadcastGameStarted(code)
 
-	http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+	// Use HX-Redirect for HTMX-aware client-side navigation
+	w.Header().Set("HX-Redirect", "/lobby/"+string(code)+"/game")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Announce handles letter announcement
@@ -212,15 +214,19 @@ func (h *GameHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	err = h.gameController.AnnounceLetter(r.Context(), *lob.CurrentGame, player.ID, letter)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not announce letter: "+err.Error())
-	} else {
-		// Broadcast letter announced to all game clients
-		g, _ := h.gameController.GetGame(r.Context(), *lob.CurrentGame)
-		if g != nil {
-			h.broadcaster.BroadcastLetterAnnounced(r.Context(), g, code)
-		}
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code)+"/game")
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
 
-	http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+	// Broadcast letter announced to all game clients
+	g, _ := h.gameController.GetGame(r.Context(), *lob.CurrentGame)
+	if g != nil {
+		h.broadcaster.BroadcastLetterAnnounced(r.Context(), g, code)
+	}
+
+	// SSE broadcast handles the UI update, so just return 204
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Place handles letter placement
@@ -266,24 +272,28 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 	err = h.gameController.PlaceLetter(r.Context(), *lob.CurrentGame, player.ID, pos)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not place letter: "+err.Error())
-	} else {
-		// Broadcast placement update
-		g, _ := h.gameController.GetGame(r.Context(), *lob.CurrentGame)
-		if g != nil {
-			h.broadcaster.BroadcastPlacementUpdate(r.Context(), g, code, player.ID)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code)+"/game")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 
-			// Check if game is complete
-			switch g.State {
-			case model.GameStateScoring:
-				h.broadcaster.BroadcastGameComplete(code)
-			case model.GameStateAnnouncing:
-				// All placed, new turn started - tell clients to refresh
-				h.broadcaster.BroadcastTurnComplete(r.Context(), g, code)
-			}
+	// Broadcast placement update
+	g, _ := h.gameController.GetGame(r.Context(), *lob.CurrentGame)
+	if g != nil {
+		h.broadcaster.BroadcastPlacementUpdate(r.Context(), g, code, player.ID)
+
+		// Check if game is complete
+		switch g.State {
+		case model.GameStateScoring:
+			h.broadcaster.BroadcastGameComplete(code)
+		case model.GameStateAnnouncing:
+			// All placed, new turn started - tell clients to refresh
+			h.broadcaster.BroadcastTurnComplete(r.Context(), g, code)
 		}
 	}
 
-	http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+	// SSE broadcast handles the UI update, so just return 204
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Abandon handles game abandonment
@@ -300,13 +310,18 @@ func (h *GameHandler) Abandon(w http.ResponseWriter, r *http.Request) {
 	err := h.lobbyController.AbandonGame(r.Context(), code, player.ID)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not abandon game: "+err.Error())
-	} else {
-		middleware.SetFlash(w, "info", "Game abandoned")
-		// Broadcast game-abandoned so all clients go back to lobby
-		h.broadcaster.BroadcastGameAbandoned(code)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code)+"/game")
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
 
-	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+	middleware.SetFlash(w, "info", "Game abandoned")
+	// Broadcast game-abandoned so all clients go back to lobby
+	h.broadcaster.BroadcastGameAbandoned(code)
+
+	// Use HX-Redirect for HTMX-aware client-side navigation to lobby
+	w.Header().Set("HX-Redirect", "/lobby/"+string(code))
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Dismiss handles dismissing game scores and returning to lobby
@@ -323,7 +338,8 @@ func (h *GameHandler) Dismiss(w http.ResponseWriter, r *http.Request) {
 	// Parse form to check for start_new flag
 	if err := r.ParseForm(); err != nil {
 		middleware.SetFlash(w, "error", "Invalid form data")
-		http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code)+"/game")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	startNew := r.FormValue("start_new") == "true"
@@ -332,14 +348,16 @@ func (h *GameHandler) Dismiss(w http.ResponseWriter, r *http.Request) {
 	lob, err := h.lobbyController.GetLobby(r.Context(), code)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Lobby not found")
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		w.Header().Set("HX-Redirect", "/")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
 	host := lob.GetHost()
 	if host == nil || host.Player.ID != player.ID {
 		middleware.SetFlash(w, "error", "Only the host can dismiss the game")
-		http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code)+"/game")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
@@ -347,7 +365,8 @@ func (h *GameHandler) Dismiss(w http.ResponseWriter, r *http.Request) {
 	err = h.lobbyController.CompleteGame(r.Context(), code)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not dismiss game: "+err.Error())
-		http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code)+"/game")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
@@ -357,17 +376,21 @@ func (h *GameHandler) Dismiss(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			middleware.SetFlash(w, "error", "Could not start new game: "+err.Error())
 			h.broadcaster.BroadcastGameDismissed(code)
-			http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+			w.Header().Set("HX-Redirect", "/lobby/"+string(code))
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		// Broadcast game started so all clients go to game page
 		h.broadcaster.BroadcastGameStarted(code)
-		http.Redirect(w, r, "/lobby/"+string(code)+"/game", http.StatusSeeOther)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code)+"/game")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
 	// Broadcast game-dismissed so all clients go back to lobby
 	h.broadcaster.BroadcastGameDismissed(code)
 
-	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+	// Use HX-Redirect for HTMX-aware client-side navigation to lobby
+	w.Header().Set("HX-Redirect", "/lobby/"+string(code))
+	w.WriteHeader(http.StatusNoContent)
 }

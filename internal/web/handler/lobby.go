@@ -187,7 +187,8 @@ func (h *LobbyHandler) Leave(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.lobbyController.LeaveLobby(r.Context(), code, player.ID); err != nil {
 		middleware.SetFlash(w, "error", "Could not leave lobby: "+err.Error())
-		http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code))
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
@@ -198,7 +199,9 @@ func (h *LobbyHandler) Leave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	middleware.SetFlash(w, "info", "You left the lobby")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	// Use HX-Redirect for HTMX-aware client-side navigation
+	w.Header().Set("HX-Redirect", "/")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // UpdateConfig handles lobby config updates
@@ -228,19 +231,17 @@ func (h *LobbyHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	err := h.lobbyController.UpdateConfig(r.Context(), code, player.ID, cfg)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not update config: "+err.Error())
-	} else {
-		middleware.SetFlash(w, "success", "Settings updated")
-		// Broadcast refresh so other clients see updated config
-		h.broadcaster.BroadcastRefresh(code)
-	}
-
-	// For HTMX requests, just return 204
-	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code))
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+	middleware.SetFlash(w, "success", "Settings updated")
+	// Broadcast refresh so other clients see updated config
+	h.broadcaster.BroadcastRefresh(code)
+
+	// SSE broadcast handles the UI update, so just return 204
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // SetRole handles role changes
@@ -270,19 +271,24 @@ func (h *LobbyHandler) SetRole(w http.ResponseWriter, r *http.Request) {
 		role = model.RoleSpectator
 	default:
 		middleware.SetFlash(w, "error", "Invalid role")
-		http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code))
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
 	err := h.lobbyController.SetRole(r.Context(), code, targetPlayerID, role)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not change role: "+err.Error())
-	} else {
-		// Broadcast refresh so all clients get personalized views with correct role buttons
-		h.broadcaster.BroadcastRefresh(code)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code))
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
 
-	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+	// Broadcast refresh so all clients get personalized views with correct role buttons
+	h.broadcaster.BroadcastRefresh(code)
+
+	// SSE broadcast handles the UI update, so just return 204
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // TransferHost handles host transfer
@@ -306,13 +312,17 @@ func (h *LobbyHandler) TransferHost(w http.ResponseWriter, r *http.Request) {
 	err := h.lobbyController.TransferHost(r.Context(), code, player.ID, newHostID)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not transfer host: "+err.Error())
-	} else {
-		middleware.SetFlash(w, "success", "Host transferred")
-		// Broadcast refresh so all clients see updated host
-		h.broadcaster.BroadcastRefresh(code)
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code))
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
 
-	http.Redirect(w, r, "/lobby/"+string(code), http.StatusSeeOther)
+	middleware.SetFlash(w, "success", "Host transferred")
+	// Broadcast refresh so all clients see updated host
+	h.broadcaster.BroadcastRefresh(code)
+
+	// SSE broadcast handles the UI update, so just return 204
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Events handles SSE event stream for a lobby

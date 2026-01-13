@@ -23,19 +23,19 @@ templ MemberList(lobby *model.Lobby, currentPlayerID model.PlayerID, isHost bool
 					if isHost && lobby.State == model.LobbyStateWaiting && !member.IsHost {
 						<span class="member-actions">
 							if member.Role == model.RolePlayer {
-								<form action={ templ.SafeURL("/lobby/" + string(lobby.Code) + "/role") } method="post" style="display: inline;">
+								<form hx-post={ "/lobby/" + string(lobby.Code) + "/role" } hx-swap="none" style="display: inline;">
 									<input type="hidden" name="player_id" value={ string(member.Player.ID) }/>
 									<input type="hidden" name="role" value="spectator"/>
 									<button type="submit" class="btn btn-sm btn-secondary">Make Spectator</button>
 								</form>
 							} else {
-								<form action={ templ.SafeURL("/lobby/" + string(lobby.Code) + "/role") } method="post" style="display: inline;">
+								<form hx-post={ "/lobby/" + string(lobby.Code) + "/role" } hx-swap="none" style="display: inline;">
 									<input type="hidden" name="player_id" value={ string(member.Player.ID) }/>
 									<input type="hidden" name="role" value="player"/>
 									<button type="submit" class="btn btn-sm btn-secondary">Make Player</button>
 								</form>
 							}
-							<form action={ templ.SafeURL("/lobby/" + string(lobby.Code) + "/transfer-host") } method="post" style="display: inline; margin-left: 0.25rem;">
+							<form hx-post={ "/lobby/" + string(lobby.Code) + "/transfer-host" } hx-swap="none" style="display: inline; margin-left: 0.25rem;">
 								<input type="hidden" name="new_host_id" value={ string(member.Player.ID) }/>
 								<button type="submit" class="btn btn-sm btn-warning">Make Host</button>
 							</form>

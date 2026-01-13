@@ -95,14 +95,13 @@ func TestAnnounceLetter(t *testing.T) {
 	// Announce as announcer
 	ts.cookies = announcerCookies
 	form := url.Values{"letter": {"A"}}
-	rr = ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+	rr = ts.postHTMX("/lobby/"+lobbyCode+"/game/announce", form)
 
-	// Should redirect back to game
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode+"/game")
+	// Should return 204 No Content (SSE broadcast handles the update)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
 
-	// Follow redirect and verify letter is shown
-	rr = ts.followRedirect(rr)
+	// Fetch game page and verify letter is shown
+	rr = ts.get("/lobby/" + lobbyCode + "/game")
 	doc := parseHTML(rr.Body)
 	assertContainsText(t, doc, "#game-status", "A")
 }
@@ -125,18 +124,18 @@ func TestPlaceLetter(t *testing.T) {
 
 	ts.cookies = announcerCookies
 	form := url.Values{"letter": {"A"}}
-	ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+	ts.postHTMX("/lobby/"+lobbyCode+"/game/announce", form)
 
 	// Now place letter (as Alice)
 	ts.cookies = aliceCookies
 	form = url.Values{"row": {"0"}, "col": {"0"}}
-	rr = ts.post("/lobby/"+lobbyCode+"/game/place", form)
+	rr = ts.postHTMX("/lobby/"+lobbyCode+"/game/place", form)
 
-	// Should redirect back to game
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	// Should return 204 No Content (SSE broadcast handles the update)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
 
-	// Follow redirect and verify placement reflected
-	rr = ts.followRedirect(rr)
+	// Fetch game page and verify it works
+	rr = ts.get("/lobby/" + lobbyCode + "/game")
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
 
@@ -161,15 +160,15 @@ func TestPlaceOnOccupiedCell(t *testing.T) {
 	// First turn - announce and both place at 0,0
 	ts.cookies = announcerCookies
 	form := url.Values{"letter": {"A"}}
-	ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+	ts.postHTMX("/lobby/"+lobbyCode+"/game/announce", form)
 
 	ts.cookies = announcerCookies
 	form = url.Values{"row": {"0"}, "col": {"0"}}
-	ts.post("/lobby/"+lobbyCode+"/game/place", form)
+	ts.postHTMX("/lobby/"+lobbyCode+"/game/place", form)
 
 	ts.cookies = otherCookies
 	form = url.Values{"row": {"0"}, "col": {"0"}}
-	ts.post("/lobby/"+lobbyCode+"/game/place", form)
+	ts.postHTMX("/lobby/"+lobbyCode+"/game/place", form)
 
 	// Second turn - announce and try to place at same position
 	rr = ts.get("/lobby/" + lobbyCode + "/game")
@@ -177,7 +176,7 @@ func TestPlaceOnOccupiedCell(t *testing.T) {
 	if doc.Find("#letter-picker").Length() > 0 {
 		// This player is announcer
 		form = url.Values{"letter": {"B"}}
-		ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+		ts.postHTMX("/lobby/"+lobbyCode+"/game/announce", form)
 	} else {
 		// Switch to announcer
 		if ts.cookies == announcerCookies {
@@ -186,17 +185,17 @@ func TestPlaceOnOccupiedCell(t *testing.T) {
 			ts.cookies = announcerCookies
 		}
 		form = url.Values{"letter": {"B"}}
-		ts.post("/lobby/"+lobbyCode+"/game/announce", form)
+		ts.postHTMX("/lobby/"+lobbyCode+"/game/announce", form)
 	}
 
 	// Try to place at already occupied cell
 	ts.cookies = aliceCookies
 	form = url.Values{"row": {"0"}, "col": {"0"}}
-	rr = ts.post("/lobby/"+lobbyCode+"/game/place", form)
+	rr = ts.postHTMX("/lobby/"+lobbyCode+"/game/place", form)
 
-	// Should get an error (redirect with flash or error response)
-	// The handler should handle this gracefully
-	assert.True(t, rr.Code == http.StatusSeeOther || rr.Code == http.StatusBadRequest || rr.Code == http.StatusOK)
+	// Should return 204 (error handled via HX-Redirect with flash message)
+	// or could succeed if game state allows it
+	assert.True(t, rr.Code == http.StatusNoContent || rr.Code == http.StatusBadRequest || rr.Code == http.StatusOK)
 }
 
 func TestAbandonGame(t *testing.T) {
@@ -208,11 +207,11 @@ func TestAbandonGame(t *testing.T) {
 	ts.startGame(lobbyCode)
 
 	// Abandon game (host only)
-	rr := ts.post("/lobby/"+lobbyCode+"/game/abandon", nil)
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/game/abandon", nil)
 
-	// Should redirect to lobby
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode)
+	// Should return 204 with HX-Redirect to lobby
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.Contains(t, rr.Header().Get("HX-Redirect"), "/lobby/"+lobbyCode)
 
 	// Follow redirect and verify we're back in lobby (no game)
 	rr = ts.followRedirect(rr)
@@ -231,11 +230,11 @@ func TestNonHostCannotAbandonGame(t *testing.T) {
 
 	// Bob tries to abandon
 	ts.cookies = bobCookies
-	rr := ts.post("/lobby/"+lobbyCode+"/game/abandon", nil)
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/game/abandon", nil)
 
-	// Should get error
-	assert.True(t, rr.Code == http.StatusForbidden || rr.Code == http.StatusSeeOther,
-		"Expected forbidden or redirect, got %d", rr.Code)
+	// Should get 204 with HX-Redirect (error via flash) or 403 forbidden
+	assert.True(t, rr.Code == http.StatusForbidden || rr.Code == http.StatusNoContent,
+		"Expected forbidden or 204, got %d", rr.Code)
 }
 
 func TestGameStatusShowsTurnInfo(t *testing.T) {
@@ -301,8 +300,8 @@ func TestHostSeesAbandonButtonDuringGame(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	doc := parseHTML(rr.Body)
-	// Host should see abandon button
-	abandonForm := doc.Find("form[action='/lobby/" + lobbyCode + "/game/abandon']")
+	// Host should see abandon button (using hx-post)
+	abandonForm := doc.Find("form[hx-post='/lobby/" + lobbyCode + "/game/abandon']")
 	assert.Equal(t, 1, abandonForm.Length(), "Host should see abandon form")
 
 	abandonButton := abandonForm.Find("button")
@@ -324,8 +323,8 @@ func TestNonHostNoAbandonButton(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	doc := parseHTML(rr.Body)
-	// Non-host should NOT see abandon form
-	abandonForm := doc.Find("form[action='/lobby/" + lobbyCode + "/game/abandon']")
+	// Non-host should NOT see abandon form (using hx-post)
+	abandonForm := doc.Find("form[hx-post='/lobby/" + lobbyCode + "/game/abandon']")
 	assert.Equal(t, 0, abandonForm.Length(), "Non-host should not see abandon form")
 }
 
@@ -351,15 +350,15 @@ func completeGame(t *testing.T, ts *webTestServer, lobbyCode string, aliceCookie
 			otherCookies = aliceCookies
 		}
 
-		// Announce letter
+		// Announce letter (using HTMX)
 		ts.cookies = announcerCookies
-		ts.post("/lobby/"+lobbyCode+"/game/announce", url.Values{"letter": {letters[i]}})
+		ts.postHTMX("/lobby/"+lobbyCode+"/game/announce", url.Values{"letter": {letters[i]}})
 
-		// Both players place
+		// Both players place (using HTMX)
 		ts.cookies = announcerCookies
-		ts.post("/lobby/"+lobbyCode+"/game/place", url.Values{"row": {pos.row}, "col": {pos.col}})
+		ts.postHTMX("/lobby/"+lobbyCode+"/game/place", url.Values{"row": {pos.row}, "col": {pos.col}})
 		ts.cookies = otherCookies
-		ts.post("/lobby/"+lobbyCode+"/game/place", url.Values{"row": {pos.row}, "col": {pos.col}})
+		ts.postHTMX("/lobby/"+lobbyCode+"/game/place", url.Values{"row": {pos.row}, "col": {pos.col}})
 	}
 }
 
@@ -380,8 +379,8 @@ func TestHostSeesDismissButtonOnScoring(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	doc := parseHTML(rr.Body)
-	// Host should see dismiss form (Return to Lobby)
-	dismissForm := doc.Find("form[action='/lobby/" + lobbyCode + "/game/dismiss']")
+	// Host should see dismiss form (Return to Lobby) using hx-post
+	dismissForm := doc.Find("form[hx-post='/lobby/" + lobbyCode + "/game/dismiss']")
 	assert.GreaterOrEqual(t, dismissForm.Length(), 1, "Host should see dismiss form")
 
 	// Should see both Return to Lobby and Play Again buttons
@@ -422,13 +421,13 @@ func TestDismissGameReturnsToLobby(t *testing.T) {
 	// Complete the game
 	completeGame(t, ts, lobbyCode, aliceCookies, bobCookies)
 
-	// Dismiss game as host
+	// Dismiss game as host (using HTMX)
 	ts.cookies = aliceCookies
-	rr := ts.post("/lobby/"+lobbyCode+"/game/dismiss", nil)
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/game/dismiss", nil)
 
-	// Should redirect to lobby
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode)
+	// Should return 204 with HX-Redirect to lobby
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.Contains(t, rr.Header().Get("HX-Redirect"), "/lobby/"+lobbyCode)
 
 	// Follow redirect and verify we're in lobby waiting state
 	rr = ts.followRedirect(rr)
@@ -447,13 +446,13 @@ func TestPlayAgainStartsNewGame(t *testing.T) {
 	// Complete the game
 	completeGame(t, ts, lobbyCode, aliceCookies, bobCookies)
 
-	// Click Play Again (dismiss with start_new=true)
+	// Click Play Again (dismiss with start_new=true) using HTMX
 	ts.cookies = aliceCookies
-	rr := ts.post("/lobby/"+lobbyCode+"/game/dismiss", url.Values{"start_new": {"true"}})
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/game/dismiss", url.Values{"start_new": {"true"}})
 
-	// Should redirect to game page
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode+"/game")
+	// Should return 204 with HX-Redirect to game page
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.Contains(t, rr.Header().Get("HX-Redirect"), "/lobby/"+lobbyCode+"/game")
 
 	// Follow redirect and verify we're in a new game (announcing state)
 	rr = ts.followRedirect(rr)

@@ -13,8 +13,8 @@ templ GameBoard(lobbyCode model.LobbyCode, board *model.Board, game *model.Game,
 					<div class="cell filled">{ string(board.Cells[row][col]) }</div>
 				} else if game.State == model.GameStatePlacing && !hasPlaced {
 					<form
-						action={ templ.SafeURL("/lobby/" + string(lobbyCode) + "/game/place") }
-						method="post"
+						hx-post={ "/lobby/" + string(lobbyCode) + "/game/place" }
+						hx-swap="none"
 						style="display: contents;"
 					>
 						<input type="hidden" name="row" value={ strconv.Itoa(row) }/>

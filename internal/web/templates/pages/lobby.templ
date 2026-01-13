@@ -33,7 +33,7 @@ templ Lobby(data LobbyData) {
 						<span class="lobby-code">{ string(data.Lobby.Code) }</span>
 					</div>
 					<div>
-						<form action={ templ.SafeURL("/lobby/" + string(data.Lobby.Code) + "/leave") } method="post">
+						<form hx-post={ "/lobby/" + string(data.Lobby.Code) + "/leave" } hx-swap="none">
 							<button type="submit" class="btn btn-secondary">Leave Lobby</button>
 						</form>
 					</div>

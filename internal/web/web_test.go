@@ -56,7 +56,7 @@ func newWebTestServer(t *testing.T) *webTestServer {
 }
 
 // request makes an HTTP request and returns the response
-func (ts *webTestServer) request(method, path string, form url.Values) *httptest.ResponseRecorder {
+func (ts *webTestServer) request(method, path string, form url.Values, htmx bool) *httptest.ResponseRecorder {
 	var body io.Reader
 	if form != nil {
 		body = strings.NewReader(form.Encode())
@@ -65,6 +65,9 @@ func (ts *webTestServer) request(method, path string, form url.Values) *httptest
 	req := httptest.NewRequest(method, path, body)
 	if form != nil {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	if htmx {
+		req.Header.Set("HX-Request", "true")
 	}
 
 	// Add cookies from jar
@@ -81,12 +84,17 @@ func (ts *webTestServer) request(method, path string, form url.Values) *httptest
 
 // get makes a GET request
 func (ts *webTestServer) get(path string) *httptest.ResponseRecorder {
-	return ts.request(http.MethodGet, path, nil)
+	return ts.request(http.MethodGet, path, nil, false)
 }
 
-// post makes a POST request with form data
+// post makes a POST request with form data (non-HTMX)
 func (ts *webTestServer) post(path string, form url.Values) *httptest.ResponseRecorder {
-	return ts.request(http.MethodPost, path, form)
+	return ts.request(http.MethodPost, path, form, false)
+}
+
+// postHTMX makes a POST request with form data as an HTMX request
+func (ts *webTestServer) postHTMX(path string, form url.Values) *httptest.ResponseRecorder {
+	return ts.request(http.MethodPost, path, form, true)
 }
 
 // parseHTML parses the response body as HTML
@@ -170,18 +178,25 @@ func (ts *webTestServer) joinLobby(code string) {
 	require.Equal(ts.t, http.StatusSeeOther, rr.Code, "Expected redirect after joining lobby")
 }
 
-// startGame starts a game in the given lobby
+// startGame starts a game in the given lobby (uses HTMX request)
 func (ts *webTestServer) startGame(lobbyCode string) {
 	ts.t.Helper()
-	rr := ts.post("/lobby/"+lobbyCode+"/game/start", nil)
-	require.Equal(ts.t, http.StatusSeeOther, rr.Code, "Expected redirect after starting game")
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/game/start", nil)
+	require.Equal(ts.t, http.StatusNoContent, rr.Code, "Expected 204 No Content after starting game")
+	require.NotEmpty(ts.t, rr.Header().Get("HX-Redirect"), "Expected HX-Redirect header after starting game")
 }
 
 // followRedirect follows a redirect and returns the response
+// Works with both traditional Location headers and HTMX HX-Redirect headers
 func (ts *webTestServer) followRedirect(rr *httptest.ResponseRecorder) *httptest.ResponseRecorder {
 	ts.t.Helper()
-	location := rr.Header().Get("Location")
-	require.NotEmpty(ts.t, location, "Expected Location header for redirect")
+	// Check for HTMX redirect first
+	location := rr.Header().Get("HX-Redirect")
+	if location == "" {
+		// Fall back to traditional redirect
+		location = rr.Header().Get("Location")
+	}
+	require.NotEmpty(ts.t, location, "Expected Location or HX-Redirect header for redirect")
 	return ts.get(location)
 }
 

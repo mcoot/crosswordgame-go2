@@ -107,8 +107,8 @@ func TestHostSeesControls(t *testing.T) {
 
 	// Host should see lobby controls
 	assertContainsElement(t, doc, "#lobby-controls")
-	// Should have start game button
-	assertContainsElement(t, doc, "form[action='/lobby/"+lobbyCode+"/game/start']")
+	// Should have start game button (using hx-post)
+	assertContainsElement(t, doc, "form[hx-post='/lobby/"+lobbyCode+"/game/start']")
 }
 
 func TestNonHostNoControls(t *testing.T) {
@@ -146,11 +146,11 @@ func TestLeaveLobby(t *testing.T) {
 	ts.joinLobby(lobbyCode)
 
 	// Bob leaves
-	rr := ts.post("/lobby/"+lobbyCode+"/leave", nil)
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/leave", nil)
 
-	// Should redirect to home
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Equal(t, "/", rr.Header().Get("Location"))
+	// Should return 204 with HX-Redirect to home
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.Equal(t, "/", rr.Header().Get("HX-Redirect"))
 }
 
 func TestUpdateConfig(t *testing.T) {
@@ -160,11 +160,10 @@ func TestUpdateConfig(t *testing.T) {
 
 	// Update grid size to 7
 	form := url.Values{"grid_size": {"7"}}
-	rr := ts.post("/lobby/"+lobbyCode+"/config", form)
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/config", form)
 
-	// Should redirect back to lobby
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode)
+	// Should return 204 No Content (SSE broadcast handles the update)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
 }
 
 func TestUpdateConfigNonHost(t *testing.T) {
@@ -181,13 +180,11 @@ func TestUpdateConfigNonHost(t *testing.T) {
 
 	// Bob tries to update config
 	form := url.Values{"grid_size": {"7"}}
-	rr := ts.post("/lobby/"+lobbyCode+"/config", form)
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/config", form)
 
-	// Should get error (redirect or error page)
-	// The exact behavior depends on implementation
-	// Either forbidden or redirect with error
-	assert.True(t, rr.Code == http.StatusForbidden || rr.Code == http.StatusSeeOther,
-		"Expected forbidden or redirect, got %d", rr.Code)
+	// Should get error - either 204 with HX-Redirect (error via flash) or forbidden
+	assert.True(t, rr.Code == http.StatusForbidden || rr.Code == http.StatusNoContent,
+		"Expected forbidden or 204, got %d", rr.Code)
 }
 
 func TestLobbyNotFoundReturnsError(t *testing.T) {
@@ -247,11 +244,11 @@ func TestHostCanStartGame(t *testing.T) {
 	ts.cookies = oldCookies
 
 	// Start game
-	rr := ts.post("/lobby/"+lobbyCode+"/game/start", nil)
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/game/start", nil)
 
-	// Should redirect to game page
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/lobby/"+lobbyCode+"/game")
+	// Should return 204 with HX-Redirect to game page
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.Contains(t, rr.Header().Get("HX-Redirect"), "/lobby/"+lobbyCode+"/game")
 }
 
 func TestCannotStartGameWithoutEnoughPlayers(t *testing.T) {
@@ -260,13 +257,12 @@ func TestCannotStartGameWithoutEnoughPlayers(t *testing.T) {
 	lobbyCode := ts.createLobby(5)
 
 	// Try to start with only one player
-	rr := ts.post("/lobby/"+lobbyCode+"/game/start", nil)
+	rr := ts.postHTMX("/lobby/"+lobbyCode+"/game/start", nil)
 
-	// Should redirect back with error (need at least 1 player, but game starts immediately)
-	// Actually checking the spec - it might allow single player
-	// Let's just verify we get a response
-	require.True(t, rr.Code == http.StatusSeeOther || rr.Code == http.StatusOK,
-		"Expected redirect or success, got %d", rr.Code)
+	// Should return 204 with HX-Redirect (either success or error via flash)
+	// The game may allow single player, so we just verify we get a valid response
+	require.True(t, rr.Code == http.StatusNoContent || rr.Code == http.StatusOK,
+		"Expected 204 or success, got %d", rr.Code)
 }
 
 func TestHostSeesRoleToggleButtons(t *testing.T) {
@@ -288,8 +284,8 @@ func TestHostSeesRoleToggleButtons(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	doc := parseHTML(rr.Body)
-	// Host should see role toggle form for Bob
-	roleForm := doc.Find("form[action='/lobby/" + lobbyCode + "/role']")
+	// Host should see role toggle form for Bob (using hx-post)
+	roleForm := doc.Find("form[hx-post='/lobby/" + lobbyCode + "/role']")
 	assert.GreaterOrEqual(t, roleForm.Length(), 1, "Host should see role toggle form")
 
 	// Should see "Make Spectator" button since Bob is a player by default
@@ -314,8 +310,8 @@ func TestNonHostNoRoleToggleButtons(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	doc := parseHTML(rr.Body)
-	// Non-host should NOT see role toggle form
-	roleForm := doc.Find("form[action='/lobby/" + lobbyCode + "/role']")
+	// Non-host should NOT see role toggle form (using hx-post)
+	roleForm := doc.Find("form[hx-post='/lobby/" + lobbyCode + "/role']")
 	assert.Equal(t, 0, roleForm.Length(), "Non-host should not see role toggle form")
 }
 
@@ -345,13 +341,13 @@ func TestHostCanTogglePlayerToSpectator(t *testing.T) {
 
 	// Toggle Bob to spectator
 	form := url.Values{"player_id": {bobPlayerID}, "role": {"spectator"}}
-	rr = ts.post("/lobby/"+lobbyCode+"/role", form)
+	rr = ts.postHTMX("/lobby/"+lobbyCode+"/role", form)
 
-	// Should redirect back to lobby
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	// Should return 204 No Content (SSE broadcast handles the update)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
 
-	// Verify Bob is now a spectator
-	rr = ts.followRedirect(rr)
+	// Fetch lobby page to verify Bob is now a spectator
+	rr = ts.get("/lobby/" + lobbyCode)
 	doc = parseHTML(rr.Body)
 
 	// Now should see "Make Player" button for Bob
@@ -385,17 +381,17 @@ func TestHostCanToggleSpectatorToPlayer(t *testing.T) {
 	playerIDInput := doc.Find("input[name='player_id']").First()
 	bobPlayerID, _ := playerIDInput.Attr("value")
 
-	ts.post("/lobby/"+lobbyCode+"/role", url.Values{"player_id": {bobPlayerID}, "role": {"spectator"}})
+	ts.postHTMX("/lobby/"+lobbyCode+"/role", url.Values{"player_id": {bobPlayerID}, "role": {"spectator"}})
 
 	// Now toggle Bob back to player
 	form := url.Values{"player_id": {bobPlayerID}, "role": {"player"}}
-	rr = ts.post("/lobby/"+lobbyCode+"/role", form)
+	rr = ts.postHTMX("/lobby/"+lobbyCode+"/role", form)
 
-	// Should redirect back to lobby
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	// Should return 204 No Content (SSE broadcast handles the update)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
 
-	// Verify we see "Make Spectator" again (Bob is now player)
-	rr = ts.followRedirect(rr)
+	// Fetch lobby page and verify we see "Make Spectator" again (Bob is now player)
+	rr = ts.get("/lobby/" + lobbyCode)
 	doc = parseHTML(rr.Body)
 	assertContainsText(t, doc, ".member-actions", "Make Spectator")
 }
@@ -446,8 +442,8 @@ func TestHostSeesTransferHostButton(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	doc := parseHTML(rr.Body)
-	// Host should see transfer host form
-	transferForm := doc.Find("form[action='/lobby/" + lobbyCode + "/transfer-host']")
+	// Host should see transfer host form (using hx-post)
+	transferForm := doc.Find("form[hx-post='/lobby/" + lobbyCode + "/transfer-host']")
 	assert.GreaterOrEqual(t, transferForm.Length(), 1, "Host should see transfer host form")
 	assertContainsText(t, doc, ".member-actions", "Make Host")
 }
@@ -470,8 +466,8 @@ func TestNonHostNoTransferHostButton(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 
 	doc := parseHTML(rr.Body)
-	// Non-host should NOT see transfer host form
-	transferForm := doc.Find("form[action='/lobby/" + lobbyCode + "/transfer-host']")
+	// Non-host should NOT see transfer host form (using hx-post)
+	transferForm := doc.Find("form[hx-post='/lobby/" + lobbyCode + "/transfer-host']")
 	assert.Equal(t, 0, transferForm.Length(), "Non-host should not see transfer host form")
 }
 
@@ -501,13 +497,13 @@ func TestHostCanTransferHost(t *testing.T) {
 
 	// Transfer host to Bob
 	form := url.Values{"new_host_id": {bobPlayerID}}
-	rr = ts.post("/lobby/"+lobbyCode+"/transfer-host", form)
+	rr = ts.postHTMX("/lobby/"+lobbyCode+"/transfer-host", form)
 
-	// Should redirect back to lobby
-	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	// Should return 204 No Content (SSE broadcast handles the update)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
 
-	// Verify Bob is now host
-	rr = ts.followRedirect(rr)
+	// Fetch lobby page as Alice and verify Bob is now host
+	rr = ts.get("/lobby/" + lobbyCode)
 	doc = parseHTML(rr.Body)
 
 	// Alice should no longer see host controls (she's not host anymore)

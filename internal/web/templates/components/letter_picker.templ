@@ -8,8 +8,8 @@ templ LetterPicker(lobbyCode model.LobbyCode) {
 		<div class="letter-picker">
 			for _, letter := range "ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
 				<form
-					action={ templ.SafeURL("/lobby/" + string(lobbyCode) + "/game/announce") }
-					method="post"
+					hx-post={ "/lobby/" + string(lobbyCode) + "/game/announce" }
+					hx-swap="none"
 					style="display: inline;"
 				>
 					<input type="hidden" name="letter" value={ string(letter) }/>

@@ -6,8 +6,8 @@ templ LobbyControls(lobby *model.Lobby) {
 	<div class="lobby-controls">
 		if countPlayers(lobby) > 0 {
 			<form
-				action={ templ.SafeURL("/lobby/" + string(lobby.Code) + "/game/start") }
-				method="post"
+				hx-post={ "/lobby/" + string(lobby.Code) + "/game/start" }
+				hx-swap="none"
 			>
 				<button type="submit" class="btn btn-primary">Start Game</button>
 			</form>
