@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mcoot/crosswordgame-go2/internal/model"
+	"github.com/mcoot/crosswordgame-go2/internal/testutil"
 )
 
 func TestFormatSSEMessage(t *testing.T) {
@@ -103,7 +104,7 @@ func TestSplitLines(t *testing.T) {
 }
 
 func TestHub_RegisterAndBroadcast(t *testing.T) {
-	hub := NewHub("TESTCODE")
+	hub := NewHub("TESTCODE", testutil.NopLogger())
 	go hub.Run()
 	defer hub.Close()
 
@@ -134,7 +135,7 @@ func TestHub_RegisterAndBroadcast(t *testing.T) {
 }
 
 func TestHub_Unregister(t *testing.T) {
-	hub := NewHub("TESTCODE")
+	hub := NewHub("TESTCODE", testutil.NopLogger())
 	go hub.Run()
 	defer hub.Close()
 
@@ -156,7 +157,7 @@ func TestHub_Unregister(t *testing.T) {
 }
 
 func TestHub_BroadcastToMultipleClients(t *testing.T) {
-	hub := NewHub("TESTCODE")
+	hub := NewHub("TESTCODE", testutil.NopLogger())
 	go hub.Run()
 	defer hub.Close()
 
@@ -193,7 +194,7 @@ func TestHub_BroadcastToMultipleClients(t *testing.T) {
 }
 
 func TestHubManager_GetOrCreateHub(t *testing.T) {
-	manager := NewHubManager()
+	manager := NewHubManager(testutil.NopLogger())
 
 	// Get or create a hub
 	hub1 := manager.GetOrCreateHub("ABC123")
@@ -219,7 +220,7 @@ func TestHubManager_GetOrCreateHub(t *testing.T) {
 }
 
 func TestHubManager_GetHub(t *testing.T) {
-	manager := NewHubManager()
+	manager := NewHubManager(testutil.NopLogger())
 
 	// GetHub on non-existent hub should return nil
 	hub := manager.GetHub("NOTEXIST")
@@ -238,7 +239,7 @@ func TestHubManager_GetHub(t *testing.T) {
 }
 
 func TestHubManager_RemoveHub(t *testing.T) {
-	manager := NewHubManager()
+	manager := NewHubManager(testutil.NopLogger())
 
 	hub := manager.GetOrCreateHub("ABC123")
 	_ = hub // Just to ensure it's created
@@ -256,7 +257,7 @@ func TestHubManager_RemoveHub(t *testing.T) {
 }
 
 func TestHubManager_CleanupEmptyHubs(t *testing.T) {
-	manager := NewHubManager()
+	manager := NewHubManager(testutil.NopLogger())
 
 	// Create a hub with no clients
 	hub1 := manager.GetOrCreateHub(model.LobbyCode("EMPTY"))

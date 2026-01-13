@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -23,6 +24,7 @@ type GameHandler struct {
 	gameController  *game.Controller
 	boardService    *board.Service
 	hubManager      *sse.HubManager
+	broadcaster     *sse.Broadcaster
 }
 
 // NewGameHandler creates a new game handler
@@ -31,21 +33,24 @@ func NewGameHandler(
 	gameController *game.Controller,
 	boardService *board.Service,
 	hubManager *sse.HubManager,
+	logger *slog.Logger,
 ) *GameHandler {
+	var broadcaster *sse.Broadcaster
+	if hubManager != nil {
+		broadcaster = sse.NewBroadcaster(hubManager, logger)
+	}
 	return &GameHandler{
 		lobbyController: lobbyController,
 		gameController:  gameController,
 		boardService:    boardService,
 		hubManager:      hubManager,
+		broadcaster:     broadcaster,
 	}
 }
 
-// broadcaster creates a broadcaster for SSE events if hub manager is available
-func (h *GameHandler) broadcaster() *sse.Broadcaster {
-	if h.hubManager == nil {
-		return nil
-	}
-	return sse.NewBroadcaster(h.hubManager)
+// getBroadcaster returns the broadcaster if available
+func (h *GameHandler) getBroadcaster() *sse.Broadcaster {
+	return h.broadcaster
 }
 
 // Start handles POST /api/v1/lobbies/{code}/game
@@ -60,7 +65,7 @@ func (h *GameHandler) Start(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast game started to SSE clients
-	if b := h.broadcaster(); b != nil {
+	if b := h.getBroadcaster(); b != nil {
 		b.BroadcastGameStarted(code)
 	}
 
@@ -177,7 +182,7 @@ func (h *GameHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast letter announced to SSE clients
-	if b := h.broadcaster(); b != nil {
+	if b := h.getBroadcaster(); b != nil {
 		b.BroadcastLetterAnnounced(r.Context(), g, code)
 	}
 
@@ -238,7 +243,7 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast placement update to SSE clients
-	if b := h.broadcaster(); b != nil {
+	if b := h.getBroadcaster(); b != nil {
 		b.BroadcastPlacementUpdate(r.Context(), g, code, player.ID)
 
 		// Broadcast turn or game completion
@@ -289,7 +294,7 @@ func (h *GameHandler) Abandon(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast game abandoned to SSE clients
-	if b := h.broadcaster(); b != nil {
+	if b := h.getBroadcaster(); b != nil {
 		b.BroadcastGameAbandoned(code)
 	}
 

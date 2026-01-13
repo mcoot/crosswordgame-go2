@@ -31,8 +31,8 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	// Create handlers
 	playerHandler := handler.NewPlayerHandler(cfg.AuthService)
-	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.HubManager)
-	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.HubManager)
+	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.HubManager, cfg.Logger)
+	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.HubManager, cfg.Logger)
 
 	// Create middleware
 	authMiddleware := middleware.Auth(cfg.AuthService)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mcoot/crosswordgame-go2/internal/model"
+	"github.com/mcoot/crosswordgame-go2/internal/testutil"
 )
 
 func TestWrapForOOBSwap(t *testing.T) {
@@ -48,8 +49,8 @@ func TestWrapForOOBSwap(t *testing.T) {
 }
 
 func TestBroadcaster_BroadcastMemberListUpdate(t *testing.T) {
-	manager := NewHubManager()
-	broadcaster := NewBroadcaster(manager)
+	manager := NewHubManager(testutil.NopLogger())
+	broadcaster := NewBroadcaster(manager, testutil.NopLogger())
 
 	// Create a lobby
 	lobby := &model.Lobby{
@@ -102,8 +103,8 @@ func TestBroadcaster_BroadcastMemberListUpdate(t *testing.T) {
 }
 
 func TestBroadcaster_BroadcastGameStarted(t *testing.T) {
-	manager := NewHubManager()
-	broadcaster := NewBroadcaster(manager)
+	manager := NewHubManager(testutil.NopLogger())
+	broadcaster := NewBroadcaster(manager, testutil.NopLogger())
 
 	lobbyCode := model.LobbyCode("GAME1")
 
@@ -135,8 +136,8 @@ func TestBroadcaster_BroadcastGameStarted(t *testing.T) {
 }
 
 func TestBroadcaster_BroadcastLetterAnnounced(t *testing.T) {
-	manager := NewHubManager()
-	broadcaster := NewBroadcaster(manager)
+	manager := NewHubManager(testutil.NopLogger())
+	broadcaster := NewBroadcaster(manager, testutil.NopLogger())
 
 	lobbyCode := model.LobbyCode("GAME2")
 
@@ -176,8 +177,8 @@ func TestBroadcaster_BroadcastLetterAnnounced(t *testing.T) {
 }
 
 func TestBroadcaster_BroadcastPlacementUpdate(t *testing.T) {
-	manager := NewHubManager()
-	broadcaster := NewBroadcaster(manager)
+	manager := NewHubManager(testutil.NopLogger())
+	broadcaster := NewBroadcaster(manager, testutil.NopLogger())
 
 	lobbyCode := model.LobbyCode("GAME3")
 
@@ -221,8 +222,8 @@ func TestBroadcaster_BroadcastPlacementUpdate(t *testing.T) {
 }
 
 func TestBroadcaster_BroadcastTurnComplete(t *testing.T) {
-	manager := NewHubManager()
-	broadcaster := NewBroadcaster(manager)
+	manager := NewHubManager(testutil.NopLogger())
+	broadcaster := NewBroadcaster(manager, testutil.NopLogger())
 
 	lobbyCode := model.LobbyCode("GAME4")
 	game := &model.Game{ID: "game1", CurrentTurn: 3}
@@ -256,8 +257,8 @@ func TestBroadcaster_BroadcastTurnComplete(t *testing.T) {
 }
 
 func TestBroadcaster_BroadcastGameComplete(t *testing.T) {
-	manager := NewHubManager()
-	broadcaster := NewBroadcaster(manager)
+	manager := NewHubManager(testutil.NopLogger())
+	broadcaster := NewBroadcaster(manager, testutil.NopLogger())
 
 	lobbyCode := model.LobbyCode("GAME5")
 
@@ -289,8 +290,8 @@ func TestBroadcaster_BroadcastGameComplete(t *testing.T) {
 }
 
 func TestBroadcaster_BroadcastRefresh(t *testing.T) {
-	manager := NewHubManager()
-	broadcaster := NewBroadcaster(manager)
+	manager := NewHubManager(testutil.NopLogger())
+	broadcaster := NewBroadcaster(manager, testutil.NopLogger())
 
 	lobbyCode := model.LobbyCode("REFRESH")
 
@@ -322,8 +323,8 @@ func TestBroadcaster_BroadcastRefresh(t *testing.T) {
 }
 
 func TestBroadcaster_BroadcastGameAbandoned(t *testing.T) {
-	manager := NewHubManager()
-	broadcaster := NewBroadcaster(manager)
+	manager := NewHubManager(testutil.NopLogger())
+	broadcaster := NewBroadcaster(manager, testutil.NopLogger())
 
 	lobbyCode := model.LobbyCode("ABANDON")
 
@@ -355,8 +356,8 @@ func TestBroadcaster_BroadcastGameAbandoned(t *testing.T) {
 }
 
 func TestBroadcaster_NoHubDoesNotPanic(t *testing.T) {
-	manager := NewHubManager()
-	broadcaster := NewBroadcaster(manager)
+	manager := NewHubManager(testutil.NopLogger())
+	broadcaster := NewBroadcaster(manager, testutil.NopLogger())
 
 	// These should not panic when hub doesn't exist
 	ctx := context.Background()

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,12 +26,12 @@ type LobbyHandler struct {
 }
 
 // NewLobbyHandler creates a new LobbyHandler
-func NewLobbyHandler(lobbyController *lobby.Controller, authService *auth.Service, hubManager *sse.HubManager) *LobbyHandler {
+func NewLobbyHandler(lobbyController *lobby.Controller, authService *auth.Service, hubManager *sse.HubManager, logger *slog.Logger) *LobbyHandler {
 	return &LobbyHandler{
 		lobbyController: lobbyController,
 		authService:     authService,
 		hubManager:      hubManager,
-		broadcaster:     sse.NewBroadcaster(hubManager),
+		broadcaster:     sse.NewBroadcaster(hubManager, logger),
 	}
 }
 

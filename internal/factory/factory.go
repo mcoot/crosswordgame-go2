@@ -82,7 +82,7 @@ func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Rand
 	gameController := game.NewController(store, boardService, scoringService, clk, rnd, logger)
 	lobbyController := lobby.NewController(store, gameController, clk, rnd, logger)
 	authService := auth.New(store, clk, authCfg, logger)
-	hubManager := sse.NewHubManager()
+	hubManager := sse.NewHubManager(logger)
 
 	return &App{
 		Storage:           store,

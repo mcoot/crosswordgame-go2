@@ -1,7 +1,9 @@
 package sse
 
 import (
+	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/mcoot/crosswordgame-go2/internal/model"
 )
@@ -11,6 +13,7 @@ type Hub struct {
 	lobbyCode model.LobbyCode
 	clients   map[*Client]bool
 	mu        sync.RWMutex
+	logger    *slog.Logger
 
 	// Channels for managing clients
 	register   chan *Client
@@ -20,10 +23,11 @@ type Hub struct {
 }
 
 // NewHub creates a new Hub for a lobby
-func NewHub(lobbyCode model.LobbyCode) *Hub {
+func NewHub(lobbyCode model.LobbyCode, logger *slog.Logger) *Hub {
 	return &Hub{
 		lobbyCode:  lobbyCode,
 		clients:    make(map[*Client]bool),
+		logger:     logger.With(slog.String("lobby", string(lobbyCode))),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		broadcast:  make(chan []byte, 256),
@@ -33,39 +37,64 @@ func NewHub(lobbyCode model.LobbyCode) *Hub {
 
 // Run starts the hub's event loop
 func (h *Hub) Run() {
+	h.logger.Info("sse hub started")
 	for {
 		select {
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
+			clientCount := len(h.clients)
 			h.mu.Unlock()
+			h.logger.Info("sse client registered",
+				slog.String("player_id", string(client.playerID)),
+				slog.Int("total_clients", clientCount))
 
 		case client := <-h.unregister:
 			h.mu.Lock()
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
+				clientCount := len(h.clients)
+				h.mu.Unlock()
+				duration := time.Since(client.connectedAt)
+				h.logger.Info("sse client unregistered",
+					slog.String("player_id", string(client.playerID)),
+					slog.Duration("connection_duration", duration),
+					slog.Int("total_clients", clientCount))
+			} else {
+				h.mu.Unlock()
 			}
-			h.mu.Unlock()
 
 		case message := <-h.broadcast:
 			h.mu.RLock()
+			sentCount := 0
+			droppedCount := 0
 			for client := range h.clients {
 				select {
 				case client.send <- message:
+					sentCount++
 				default:
-					// Client buffer full, will be cleaned up
+					droppedCount++
+					h.logger.Warn("sse message dropped - client buffer full",
+						slog.String("player_id", string(client.playerID)))
 				}
 			}
 			h.mu.RUnlock()
+			if droppedCount > 0 {
+				h.logger.Warn("sse broadcast partial failure",
+					slog.Int("sent", sentCount),
+					slog.Int("dropped", droppedCount))
+			}
 
 		case <-h.done:
 			h.mu.Lock()
+			clientCount := len(h.clients)
 			for client := range h.clients {
 				close(client.send)
 				delete(h.clients, client)
 			}
 			h.mu.Unlock()
+			h.logger.Info("sse hub stopped", slog.Int("disconnected_clients", clientCount))
 			return
 		}
 	}
@@ -86,7 +115,7 @@ func (h *Hub) Broadcast(message []byte) {
 	select {
 	case h.broadcast <- message:
 	default:
-		// Drop message if buffer full
+		h.logger.Warn("sse broadcast dropped - hub buffer full")
 	}
 }
 
@@ -144,14 +173,16 @@ func splitLines(s string) []string {
 
 // HubManager manages hubs for all lobbies
 type HubManager struct {
-	hubs map[model.LobbyCode]*Hub
-	mu   sync.RWMutex
+	hubs   map[model.LobbyCode]*Hub
+	mu     sync.RWMutex
+	logger *slog.Logger
 }
 
 // NewHubManager creates a new HubManager
-func NewHubManager() *HubManager {
+func NewHubManager(logger *slog.Logger) *HubManager {
 	return &HubManager{
-		hubs: make(map[model.LobbyCode]*Hub),
+		hubs:   make(map[model.LobbyCode]*Hub),
+		logger: logger.With(slog.String("component", "sse")),
 	}
 }
 
@@ -164,7 +195,7 @@ func (m *HubManager) GetOrCreateHub(lobbyCode model.LobbyCode) *Hub {
 		return hub
 	}
 
-	hub := NewHub(lobbyCode)
+	hub := NewHub(lobbyCode, m.logger)
 	m.hubs[lobbyCode] = hub
 	go hub.Run()
 	return hub
@@ -185,6 +216,7 @@ func (m *HubManager) RemoveHub(lobbyCode model.LobbyCode) {
 	if hub, ok := m.hubs[lobbyCode]; ok {
 		hub.Close()
 		delete(m.hubs, lobbyCode)
+		m.logger.Info("sse hub removed", slog.String("lobby", string(lobbyCode)))
 	}
 }
 
@@ -193,10 +225,15 @@ func (m *HubManager) CleanupEmptyHubs() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	removedCount := 0
 	for code, hub := range m.hubs {
 		if hub.ClientCount() == 0 {
 			hub.Close()
 			delete(m.hubs, code)
+			removedCount++
 		}
+	}
+	if removedCount > 0 {
+		m.logger.Info("sse empty hubs cleaned up", slog.Int("removed", removedCount))
 	}
 }

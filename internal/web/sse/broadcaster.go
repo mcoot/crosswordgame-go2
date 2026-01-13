@@ -3,6 +3,7 @@ package sse
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"strconv"
 
 	"github.com/mcoot/crosswordgame-go2/internal/model"
@@ -12,12 +13,14 @@ import (
 // Broadcaster handles broadcasting updates to SSE clients
 type Broadcaster struct {
 	hubManager *HubManager
+	logger     *slog.Logger
 }
 
 // NewBroadcaster creates a new Broadcaster
-func NewBroadcaster(hubManager *HubManager) *Broadcaster {
+func NewBroadcaster(hubManager *HubManager, logger *slog.Logger) *Broadcaster {
 	return &Broadcaster{
 		hubManager: hubManager,
+		logger:     logger.With(slog.String("component", "sse-broadcaster")),
 	}
 }
 
@@ -32,6 +35,9 @@ func (b *Broadcaster) BroadcastMemberListUpdate(ctx context.Context, lobby *mode
 	var buf bytes.Buffer
 	err := components.MemberList(lobby, "", false).Render(ctx, &buf)
 	if err != nil {
+		b.logger.Error("sse failed to render member list",
+			slog.String("lobby", string(lobby.Code)),
+			slog.Any("error", err))
 		return
 	}
 
@@ -50,6 +56,9 @@ func (b *Broadcaster) BroadcastLobbyControlsUpdate(ctx context.Context, lobby *m
 	var buf bytes.Buffer
 	err := components.LobbyControls(lobby).Render(ctx, &buf)
 	if err != nil {
+		b.logger.Error("sse failed to render lobby controls",
+			slog.String("lobby", string(lobby.Code)),
+			slog.Any("error", err))
 		return
 	}
 
@@ -82,6 +91,9 @@ func (b *Broadcaster) BroadcastGameStatus(ctx context.Context, game *model.Game,
 	// We pass isAnnouncer=false and hasPlaced=false - clients will refresh to get accurate state
 	err := components.GameStatus(game, false, false).Render(ctx, &buf)
 	if err != nil {
+		b.logger.Error("sse failed to render game status",
+			slog.String("lobby", string(lobbyCode)),
+			slog.Any("error", err))
 		return
 	}
 

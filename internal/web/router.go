@@ -46,14 +46,14 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	// Create SSE hub manager if not provided
 	hubManager := cfg.HubManager
 	if hubManager == nil {
-		hubManager = sse.NewHubManager()
+		hubManager = sse.NewHubManager(cfg.Logger)
 	}
 
 	// Create handlers
 	homeHandler := handler.NewHomeHandler()
 	authHandler := handler.NewAuthHandler(cfg.AuthService)
-	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.AuthService, hubManager)
-	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.ScoringService, hubManager)
+	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.AuthService, hubManager, cfg.Logger)
+	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.ScoringService, hubManager, cfg.Logger)
 
 	// Static files
 	if cfg.StaticDir != "" {

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -29,14 +30,14 @@ type GameHandler struct {
 }
 
 // NewGameHandler creates a new GameHandler
-func NewGameHandler(lobbyController *lobby.Controller, gameController *game.Controller, boardService *board.Service, scoringService *scoring.Service, hubManager *sse.HubManager) *GameHandler {
+func NewGameHandler(lobbyController *lobby.Controller, gameController *game.Controller, boardService *board.Service, scoringService *scoring.Service, hubManager *sse.HubManager, logger *slog.Logger) *GameHandler {
 	return &GameHandler{
 		lobbyController: lobbyController,
 		gameController:  gameController,
 		boardService:    boardService,
 		scoringService:  scoringService,
 		hubManager:      hubManager,
-		broadcaster:     sse.NewBroadcaster(hubManager),
+		broadcaster:     sse.NewBroadcaster(hubManager, logger),
 	}
 }
 

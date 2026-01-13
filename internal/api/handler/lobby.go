@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -18,22 +19,25 @@ import (
 type LobbyHandler struct {
 	lobbyController *lobby.Controller
 	hubManager      *sse.HubManager
+	broadcaster     *sse.Broadcaster
 }
 
 // NewLobbyHandler creates a new lobby handler
-func NewLobbyHandler(lobbyController *lobby.Controller, hubManager *sse.HubManager) *LobbyHandler {
+func NewLobbyHandler(lobbyController *lobby.Controller, hubManager *sse.HubManager, logger *slog.Logger) *LobbyHandler {
+	var broadcaster *sse.Broadcaster
+	if hubManager != nil {
+		broadcaster = sse.NewBroadcaster(hubManager, logger)
+	}
 	return &LobbyHandler{
 		lobbyController: lobbyController,
 		hubManager:      hubManager,
+		broadcaster:     broadcaster,
 	}
 }
 
-// broadcaster creates a broadcaster for SSE events if hub manager is available
-func (h *LobbyHandler) broadcaster() *sse.Broadcaster {
-	if h.hubManager == nil {
-		return nil
-	}
-	return sse.NewBroadcaster(h.hubManager)
+// getBroadcaster returns the broadcaster if available
+func (h *LobbyHandler) getBroadcaster() *sse.Broadcaster {
+	return h.broadcaster
 }
 
 // Create handles POST /api/v1/lobbies
@@ -95,7 +99,7 @@ func (h *LobbyHandler) Join(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast member list update to SSE clients
-	if b := h.broadcaster(); b != nil {
+	if b := h.getBroadcaster(); b != nil {
 		b.BroadcastMemberListUpdate(r.Context(), lobby)
 	}
 
@@ -113,7 +117,7 @@ func (h *LobbyHandler) Leave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast member list update to SSE clients
-	if b := h.broadcaster(); b != nil {
+	if b := h.getBroadcaster(); b != nil {
 		lobby, _ := h.lobbyController.GetLobby(r.Context(), code)
 		if lobby != nil {
 			b.BroadcastMemberListUpdate(r.Context(), lobby)
@@ -141,7 +145,7 @@ func (h *LobbyHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast refresh to SSE clients
-	if b := h.broadcaster(); b != nil {
+	if b := h.getBroadcaster(); b != nil {
 		b.BroadcastRefresh(code)
 	}
 
@@ -181,7 +185,7 @@ func (h *LobbyHandler) SetRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast member list update to SSE clients
-	if b := h.broadcaster(); b != nil {
+	if b := h.getBroadcaster(); b != nil {
 		lobby, _ = h.lobbyController.GetLobby(r.Context(), code)
 		if lobby != nil {
 			b.BroadcastMemberListUpdate(r.Context(), lobby)
@@ -214,7 +218,7 @@ func (h *LobbyHandler) TransferHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Broadcast refresh to SSE clients
-	if b := h.broadcaster(); b != nil {
+	if b := h.getBroadcaster(); b != nil {
 		b.BroadcastRefresh(code)
 	}
 
