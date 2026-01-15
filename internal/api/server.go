@@ -24,7 +24,7 @@ func DefaultServerConfig() ServerConfig {
 		Host:            "",
 		Port:            8080,
 		ReadTimeout:     15 * time.Second,
-		WriteTimeout:    15 * time.Second,
+		WriteTimeout:    60 * time.Second, // Long timeout for SSE (keepalive is 15s)
 		ShutdownTimeout: 30 * time.Second,
 	}
 }
