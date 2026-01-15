@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
 	"github.com/mcoot/crosswordgame-go2/internal/web/middleware"
 	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
+	"github.com/mcoot/crosswordgame-go2/internal/web/templates/components"
 	"github.com/mcoot/crosswordgame-go2/internal/web/templates/layout"
 	"github.com/mcoot/crosswordgame-go2/internal/web/templates/pages"
 )
@@ -277,12 +279,15 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Broadcast placement update
+	// Get updated game and board state
 	g, _ := h.gameController.GetGame(r.Context(), *lob.CurrentGame)
+	board, _ := h.boardService.GetBoard(r.Context(), *lob.CurrentGame, player.ID)
+
 	if g != nil {
+		// Broadcast placement count to other players via SSE
 		h.broadcaster.BroadcastPlacementUpdate(r.Context(), g, code, player.ID)
 
-		// Check if game is complete
+		// Check if game advanced state
 		switch g.State {
 		case model.GameStateScoring:
 			h.broadcaster.BroadcastGameComplete(code)
@@ -292,8 +297,30 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// SSE broadcast handles the UI update, so just return 204
-	w.WriteHeader(http.StatusNoContent)
+	// Return OOB swaps to update the placing player's UI immediately
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	var buf bytes.Buffer
+
+	// 1. Updated game board (shows placed letter, disables remaining cells)
+	buf.WriteString(`<div id="game-board" hx-swap-oob="true">`)
+	components.GameBoard(code, board, g, true).Render(r.Context(), &buf)
+	buf.WriteString(`</div>`)
+
+	// 2. Updated game status ("Waiting for other players...")
+	buf.WriteString(`<div id="game-status" hx-swap-oob="true">`)
+	components.GameStatus(g, false, true).Render(r.Context(), &buf)
+	buf.WriteString(`</div>`)
+
+	// 3. Updated placement count
+	if g != nil && g.State == model.GameStatePlacing {
+		placedCount := countPlacements(g)
+		buf.WriteString(`<div id="placement-status" hx-swap-oob="true" class="text-muted">`)
+		buf.WriteString(strconv.Itoa(placedCount) + "/" + strconv.Itoa(len(g.Players)) + " players have placed")
+		buf.WriteString(`</div>`)
+	}
+
+	w.Write(buf.Bytes())
 }
 
 // Abandon handles game abandonment
@@ -393,4 +420,15 @@ func (h *GameHandler) Dismiss(w http.ResponseWriter, r *http.Request) {
 	// Use HX-Redirect for HTMX-aware client-side navigation to lobby
 	w.Header().Set("HX-Redirect", "/lobby/"+string(code))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// countPlacements counts how many players have placed in the current turn
+func countPlacements(g *model.Game) int {
+	count := 0
+	for _, placed := range g.Placements {
+		if placed {
+			count++
+		}
+	}
+	return count
 }

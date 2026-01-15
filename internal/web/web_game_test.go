@@ -131,8 +131,9 @@ func TestPlaceLetter(t *testing.T) {
 	form = url.Values{"row": {"0"}, "col": {"0"}}
 	rr = ts.postHTMX("/lobby/"+lobbyCode+"/game/place", form)
 
-	// Should return 204 No Content (SSE broadcast handles the update)
-	assert.Equal(t, http.StatusNoContent, rr.Code)
+	// Should return 200 OK with OOB swaps to update the placing player's UI
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "hx-swap-oob")
 
 	// Fetch game page and verify it works
 	rr = ts.get("/lobby/" + lobbyCode + "/game")
