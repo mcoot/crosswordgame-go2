@@ -34,6 +34,10 @@ func NewClient(hub *Hub, playerID model.PlayerID) *Client {
 	}
 }
 
+// writeDeadlineExtension is the duration to extend the write deadline before each write.
+// This must be longer than pingPeriod to ensure the deadline doesn't expire between keepalives.
+const writeDeadlineExtension = 30 * time.Second
+
 // ServeSSE handles the SSE connection for a client
 func ServeSSE(w http.ResponseWriter, r *http.Request, hub *Hub, playerID model.PlayerID) {
 	logger := hub.logger.With(slog.String("player_id", string(playerID)))
@@ -46,6 +50,11 @@ func ServeSSE(w http.ResponseWriter, r *http.Request, hub *Hub, playerID model.P
 		return
 	}
 
+	// Create response controller for deadline management (Go 1.20+)
+	// This allows us to extend the write deadline before each write,
+	// working around Go's WriteTimeout being an absolute deadline rather than per-write.
+	rc := http.NewResponseController(w)
+
 	// Set SSE headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -56,21 +65,27 @@ func ServeSSE(w http.ResponseWriter, r *http.Request, hub *Hub, playerID model.P
 	// Create and register client
 	client := NewClient(hub, playerID)
 	hub.Register(client)
+	defer hub.Unregister(client)
 
-	// Ensure cleanup on disconnect
-	defer func() {
-		hub.Unregister(client)
-	}()
+	// Helper to write with deadline extension
+	writeWithDeadline := func(data []byte) error {
+		// Extend write deadline before each write to prevent timeout
+		if err := rc.SetWriteDeadline(time.Now().Add(writeDeadlineExtension)); err != nil {
+			logger.Debug("sse failed to set write deadline", slog.Any("error", err))
+		}
+		_, err := w.Write(data)
+		return err
+	}
 
 	// Send retry interval to tell client how quickly to reconnect on disconnect
-	if _, err := w.Write([]byte("retry: 3000\n\n")); err != nil {
+	if err := writeWithDeadline([]byte("retry: 3000\n\n")); err != nil {
 		logger.Error("sse failed to write retry header", slog.Any("error", err))
 		return
 	}
 	flusher.Flush()
 
 	// Send initial connection event
-	if _, err := w.Write([]byte("event: connected\ndata: {\"status\":\"connected\"}\n\n")); err != nil {
+	if err := writeWithDeadline([]byte("event: connected\ndata: {\"status\":\"connected\"}\n\n")); err != nil {
 		logger.Error("sse failed to write connected event", slog.Any("error", err))
 		return
 	}
@@ -89,8 +104,7 @@ func ServeSSE(w http.ResponseWriter, r *http.Request, hub *Hub, playerID model.P
 				logger.Debug("sse client channel closed by hub")
 				return
 			}
-			_, err := w.Write(message)
-			if err != nil {
+			if err := writeWithDeadline(message); err != nil {
 				logger.Warn("sse write error", slog.Any("error", err))
 				return
 			}
@@ -98,8 +112,7 @@ func ServeSSE(w http.ResponseWriter, r *http.Request, hub *Hub, playerID model.P
 
 		case <-ticker.C:
 			// Send keepalive comment
-			_, err := w.Write([]byte(": keepalive\n\n"))
-			if err != nil {
+			if err := writeWithDeadline([]byte(": keepalive\n\n")); err != nil {
 				logger.Warn("sse keepalive write error", slog.Any("error", err))
 				return
 			}
