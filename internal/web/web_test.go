@@ -30,10 +30,11 @@ func newWebTestServer(t *testing.T) *webTestServer {
 	t.Helper()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	app := factory.New(factory.Config{})
+	app, err := factory.New(factory.Config{})
+	require.NoError(t, err)
 
 	// Load dictionary for game tests
-	err := app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
+	err = app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
 	require.NoError(t, err)
 
 	router := web.NewRouter(web.RouterConfig{

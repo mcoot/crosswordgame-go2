@@ -304,12 +304,12 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Updated game board (shows placed letter, disables remaining cells)
 	buf.WriteString(`<div id="game-board" hx-swap-oob="true">`)
-	components.GameBoard(code, board, g, true).Render(r.Context(), &buf)
+	_ = components.GameBoard(code, board, g, true).Render(r.Context(), &buf)
 	buf.WriteString(`</div>`)
 
 	// 2. Updated game status ("Waiting for other players...")
 	buf.WriteString(`<div id="game-status" hx-swap-oob="true">`)
-	components.GameStatus(g, false, true).Render(r.Context(), &buf)
+	_ = components.GameStatus(g, false, true).Render(r.Context(), &buf)
 	buf.WriteString(`</div>`)
 
 	// 3. Updated placement count
@@ -320,7 +320,7 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 		buf.WriteString(`</div>`)
 	}
 
-	w.Write(buf.Bytes())
+	_, _ = w.Write(buf.Bytes())
 }
 
 // Abandon handles game abandonment

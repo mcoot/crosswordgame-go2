@@ -114,9 +114,10 @@ func startTestServer(t *testing.T) *testServer {
 
 	// Create application
 	projectRoot := findProjectRoot(t)
-	app := factory.New(factory.Config{
+	app, err := factory.New(factory.Config{
 		DictionaryPath: filepath.Join(projectRoot, "data/words.txt"),
 	})
+	require.NoError(t, err)
 
 	// Load dictionary
 	err = app.DictionaryService.LoadFromFile(context.Background(), filepath.Join(projectRoot, "data/words.txt"))

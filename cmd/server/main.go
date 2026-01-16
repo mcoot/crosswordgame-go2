@@ -11,6 +11,7 @@ import (
 
 	"github.com/mcoot/crosswordgame-go2/internal/api"
 	"github.com/mcoot/crosswordgame-go2/internal/factory"
+	redisstorage "github.com/mcoot/crosswordgame-go2/internal/storage/redis"
 	"github.com/mcoot/crosswordgame-go2/internal/web"
 )
 
@@ -21,11 +22,31 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	// Create application factory
-	app := factory.New(factory.Config{
+	// Build factory config from environment
+	cfg := factory.Config{
 		DictionaryPath: "data/words.txt",
 		Logger:         logger,
-	})
+		StorageType:    os.Getenv("STORAGE_TYPE"),
+	}
+
+	// Configure Redis if storage type is redis
+	if cfg.StorageType == factory.StorageTypeRedis {
+		redisURL := os.Getenv("REDIS_URL")
+		if redisURL == "" {
+			logger.Error("REDIS_URL required when STORAGE_TYPE=redis")
+			os.Exit(1)
+		}
+		redisCfg := redisstorage.DefaultConfig()
+		redisCfg.URL = redisURL
+		cfg.RedisConfig = &redisCfg
+	}
+
+	// Create application factory
+	app, err := factory.New(cfg)
+	if err != nil {
+		logger.Error("failed to create application", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 
 	// Load dictionary
 	if err := app.DictionaryService.LoadFromFile(context.Background(), "data/words.txt"); err != nil {

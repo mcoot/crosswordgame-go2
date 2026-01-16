@@ -10,6 +10,7 @@ primary_region = 'syd'
 
 [env]
   PORT = '8080'
+  STORAGE_TYPE = 'redis'
 
 [http_service]
   internal_port = 8080

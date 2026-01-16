@@ -32,8 +32,9 @@ func newTestServer(t *testing.T) *testServer {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// API tests are integration tests - use production factory with real random/clock
-	app := factory.New(factory.Config{})
-	err := app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
+	app, err := factory.New(factory.Config{})
+	require.NoError(t, err)
+	err = app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
 	require.NoError(t, err)
 
 	router := api.NewRouter(api.RouterConfig{

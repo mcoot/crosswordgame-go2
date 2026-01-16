@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"errors"
 	"io"
 	"log/slog"
 
@@ -14,7 +15,14 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
 	"github.com/mcoot/crosswordgame-go2/internal/storage"
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
+	redisstorage "github.com/mcoot/crosswordgame-go2/internal/storage/redis"
 	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
+)
+
+// Storage type constants
+const (
+	StorageTypeMemory = "memory"
+	StorageTypeRedis  = "redis"
 )
 
 // App contains all wired application components
@@ -47,12 +55,43 @@ type Config struct {
 	// Logger is the application logger (optional)
 	// If nil, a no-op logger is used
 	Logger *slog.Logger
+	// StorageType selects the storage backend ("memory" or "redis")
+	// If empty, defaults to "memory"
+	StorageType string
+	// RedisConfig holds Redis connection settings (required if StorageType is "redis")
+	RedisConfig *redisstorage.Config
 }
 
 // New creates a new application with all dependencies wired
-func New(cfg Config) *App {
-	// Create storage
-	store := memory.New()
+func New(cfg Config) (*App, error) {
+	// Use no-op logger if not provided
+	logger := cfg.Logger
+	if logger == nil {
+		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
+	}
+
+	// Create storage based on type
+	var store storage.Storage
+	storageType := cfg.StorageType
+	if storageType == "" {
+		storageType = StorageTypeMemory
+	}
+
+	switch storageType {
+	case StorageTypeMemory:
+		store = memory.New()
+	case StorageTypeRedis:
+		if cfg.RedisConfig == nil {
+			return nil, errors.New("RedisConfig required when StorageType is redis")
+		}
+		redisStore, err := redisstorage.New(*cfg.RedisConfig)
+		if err != nil {
+			return nil, err
+		}
+		store = redisStore
+	default:
+		return nil, errors.New("invalid StorageType: must be 'memory' or 'redis'")
+	}
 
 	// Create external dependencies
 	clk := clock.New()
@@ -64,13 +103,7 @@ func New(cfg Config) *App {
 		authCfg = auth.DefaultConfig()
 	}
 
-	// Use no-op logger if not provided
-	logger := cfg.Logger
-	if logger == nil {
-		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
-	}
-
-	return newWithDependencies(store, clk, rnd, authCfg, logger)
+	return newWithDependencies(store, clk, rnd, authCfg, logger), nil
 }
 
 // newWithDependencies creates an App with the given dependencies (useful for testing)

@@ -148,3 +148,38 @@ tasks:
     cmds:
       - docker stop cwgame || true
       - docker rm cwgame || true
+
+  # Redis tasks
+  redis:start:
+    desc: Start Redis container for local development
+    cmds:
+      - docker compose up -d redis
+      - echo "Redis started at localhost:6379"
+
+  redis:stop:
+    desc: Stop Redis container
+    cmds:
+      - docker compose down
+
+  redis:cli:
+    desc: Open Redis CLI
+    cmds:
+      - docker compose exec redis redis-cli
+
+  run:redis:
+    desc: Run the server with Redis storage
+    deps: [templ:generate, redis:start]
+    env:
+      STORAGE_TYPE: redis
+      REDIS_URL: redis://localhost:6379
+    cmds:
+      - go run ./cmd/server
+
+  test:e2e:redis:
+    desc: Run end-to-end tests with Redis storage
+    deps: [redis:start]
+    env:
+      STORAGE_TYPE: redis
+      REDIS_URL: redis://localhost:6379
+    cmds:
+      - go test -v ./e2e/... {{.CLI_ARGS}}

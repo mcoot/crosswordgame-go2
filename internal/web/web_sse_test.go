@@ -133,10 +133,11 @@ func TestSSE_BroadcastReceived(t *testing.T) {
 	// This test is more complex as it requires coordinating between
 	// the SSE connection and triggering a broadcast
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	app := factory.New(factory.Config{})
+	app, err := factory.New(factory.Config{})
+	require.NoError(t, err)
 
 	// Load dictionary
-	err := app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
+	err = app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
 	require.NoError(t, err)
 
 	router := web.NewRouter(web.RouterConfig{
@@ -231,9 +232,10 @@ func TestSSE_BroadcastReceived(t *testing.T) {
 // TestSSE_HubClientRegistration verifies clients are properly registered with the hub
 func TestSSE_HubClientRegistration(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	app := factory.New(factory.Config{})
+	app, err := factory.New(factory.Config{})
+	require.NoError(t, err)
 
-	err := app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
+	err = app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
 	require.NoError(t, err)
 
 	router := web.NewRouter(web.RouterConfig{
@@ -281,9 +283,10 @@ func TestSSE_HubClientRegistration(t *testing.T) {
 // TestSSE_MultipleClients verifies multiple clients can connect to the same hub
 func TestSSE_MultipleClients(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	app := factory.New(factory.Config{})
+	app, err := factory.New(factory.Config{})
+	require.NoError(t, err)
 
-	err := app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
+	err = app.DictionaryService.LoadFromFile(t.Context(), "../../data/words.txt")
 	require.NoError(t, err)
 
 	router := web.NewRouter(web.RouterConfig{

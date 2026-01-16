@@ -12,6 +12,17 @@ jobs:
     name: Test & Lint
     runs-on: ubuntu-latest
 
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -36,6 +47,12 @@ jobs:
 
       - name: Run tests
         run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Run e2e tests with Redis
+        env:
+          STORAGE_TYPE: redis
+          REDIS_URL: redis://localhost:6379
+        run: go test -v ./e2e/...
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
