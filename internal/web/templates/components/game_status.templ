@@ -14,11 +14,11 @@ templ GameStatus(game *model.Game, isAnnouncer bool, hasPlaced bool) {
 				<p>The announcer is choosing a letter...</p>
 			}
 		case model.GameStatePlacing:
-			<h2>Place the Letter</h2>
-			<div class="current-letter">{ string(game.CurrentLetter) }</div>
+			<h2>Placing</h2>
 			if hasPlaced {
-				<p class="text-muted">Waiting for other players...</p>
+				<p class="text-muted">Waiting for other players to place { string(game.CurrentLetter) }...</p>
 			} else {
+				<div class="current-letter">{ string(game.CurrentLetter) }</div>
 				<p>Click an empty cell to place the letter.</p>
 			}
 		case model.GameStateScoring:
