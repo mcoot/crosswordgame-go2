@@ -42,12 +42,6 @@ templ Game(data GameData) {
 					@components.GameStatus(data.Game, data.IsAnnouncer, data.HasPlaced)
 				</div>
 
-				if data.Game.State == model.GameStateAnnouncing && data.IsAnnouncer {
-					<div id="letter-picker">
-						@components.LetterPicker(data.Lobby.Code)
-					</div>
-				}
-
 				if !data.IsSpectator && data.MyBoard != nil {
 					<div id="game-board">
 						@components.GameBoard(data.Lobby.Code, data.MyBoard, data.Game, data.HasPlaced)
@@ -57,6 +51,12 @@ templ Game(data GameData) {
 							{ placementStatusText(data.Game) }
 						</div>
 					}
+				}
+
+				if data.Game.State == model.GameStateAnnouncing && data.IsAnnouncer {
+					<div id="letter-picker">
+						@components.LetterPicker(data.Lobby.Code)
+					</div>
 				}
 
 				if data.Game.State == model.GameStateScoring {
