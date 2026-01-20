@@ -154,6 +154,22 @@ func (ts *webTestServer) createGuestPlayer(displayName string) {
 	require.True(ts.t, ts.cookies.hasSession(), "Expected session cookie to be set")
 }
 
+// createRegisteredPlayer creates a registered player directly via the auth service
+// and sets up the session cookie for subsequent requests
+// Preserved for future re-enablement of login functionality
+//
+//nolint:unused
+func (ts *webTestServer) createRegisteredPlayer(username, password, displayName string) {
+	ts.t.Helper()
+	session, err := ts.app.AuthService.RegisterPlayer(ts.t.Context(), username, password, displayName)
+	require.NoError(ts.t, err, "Expected registration to succeed")
+	// Set the session cookie
+	ts.cookies.cookies["session"] = &http.Cookie{
+		Name:  "session",
+		Value: session.Token,
+	}
+}
+
 // createLobby creates a lobby and returns the lobby code
 func (ts *webTestServer) createLobby(gridSize int) string {
 	ts.t.Helper()

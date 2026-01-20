@@ -66,16 +66,12 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	public.Use(flashMiddleware)
 	public.Use(optionalAuthMiddleware)
 	public.HandleFunc("/", homeHandler.Home).Methods(http.MethodGet)
-	public.HandleFunc("/login", authHandler.LoginPage).Methods(http.MethodGet)
-	public.HandleFunc("/register", authHandler.RegisterPage).Methods(http.MethodGet)
 
 	// Auth actions (no auth required)
 	authRoutes := r.PathPrefix("/auth").Subrouter()
 	authRoutes.Use(flashMiddleware)
 	authRoutes.Use(optionalAuthMiddleware)
 	authRoutes.HandleFunc("/guest", authHandler.CreateGuest).Methods(http.MethodPost)
-	authRoutes.HandleFunc("/login", authHandler.Login).Methods(http.MethodPost)
-	authRoutes.HandleFunc("/register", authHandler.Register).Methods(http.MethodPost)
 	authRoutes.HandleFunc("/logout", authHandler.Logout).Methods(http.MethodPost)
 
 	// Protected routes (require auth)

@@ -94,9 +94,9 @@ func TestSSE_RequiresAuthentication(t *testing.T) {
 	rr := httptest.NewRecorder()
 	ts2.handler.ServeHTTP(rr, req)
 
-	// Should redirect to login
+	// Should redirect to home with next parameter
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/login")
+	assert.Contains(t, rr.Header().Get("Location"), "/?next=")
 }
 
 // TestSSE_RequiresLobbyMembership verifies non-members cannot access SSE

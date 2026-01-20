@@ -55,7 +55,7 @@ func Home(data HomeData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if data.Player == nil {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<section class=\"home-section\"><h2>Get Started</h2><div class=\"card\"><h3>Play as Guest</h3><p>Start playing immediately without creating an account.</p><form action=\"/auth/guest\" method=\"post\" class=\"form-inline\"><input type=\"text\" name=\"display_name\" placeholder=\"Display Name\" required maxlength=\"20\" class=\"input\"> <button type=\"submit\" class=\"btn btn-primary\">Play as Guest</button></form></div><p class=\"text-muted\">Already have an account? <a href=\"/login\">Login</a> or <a href=\"/register\">Register</a></p></section>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<section class=\"home-section\"><h2>Get Started</h2><div class=\"card\"><h3>Select display name</h3><form action=\"/auth/guest\" method=\"post\" class=\"form-inline\"><input type=\"text\" name=\"display_name\" placeholder=\"Display Name\" required maxlength=\"20\" class=\"input\"> <button type=\"submit\" class=\"btn btn-primary\">Start</button></form></div></section>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

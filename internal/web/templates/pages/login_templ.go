@@ -109,7 +109,7 @@ func Login(data LoginData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" required autofocus class=\"input\"></div><div class=\"form-group\"><label for=\"password\">Password</label> <input type=\"password\" id=\"password\" name=\"password\" required class=\"input\"></div><button type=\"submit\" class=\"btn btn-primary\">Login</button></form><div class=\"auth-footer\">Don't have an account? <a href=\"/register\">Register</a></div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" required autofocus class=\"input\"></div><div class=\"form-group\"><label for=\"password\">Password</label> <input type=\"password\" id=\"password\" name=\"password\" required class=\"input\"></div><button type=\"submit\" class=\"btn btn-primary\">Login</button></form></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

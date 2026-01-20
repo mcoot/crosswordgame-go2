@@ -22,14 +22,14 @@ func GetPlayer(ctx context.Context) *model.Player {
 }
 
 // Auth returns middleware that requires authentication
-// Redirects to login page if not authenticated
+// Redirects to home page if not authenticated
 func Auth(authService *auth.Service) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			player := getPlayerFromSession(r, authService)
 			if player == nil {
-				// Store original URL to redirect back after login
-				redirectURL := "/login?next=" + r.URL.Path
+				// Store original URL to redirect back after auth
+				redirectURL := "/?next=" + r.URL.Path
 				http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 				return
 			}

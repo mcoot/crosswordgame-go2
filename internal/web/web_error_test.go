@@ -46,9 +46,9 @@ func TestAccessDeniedForProtectedRoute(t *testing.T) {
 	// Try to access lobby without auth
 	rr := ts.get("/lobby/ABC123")
 
-	// Should redirect to login
+	// Should redirect to home with next parameter
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
-	assert.Contains(t, rr.Header().Get("Location"), "/login")
+	assert.Contains(t, rr.Header().Get("Location"), "/?next=")
 }
 
 func TestGameNotFoundWithoutGame(t *testing.T) {
@@ -79,43 +79,11 @@ func TestInvalidFormDataHandledGracefully(t *testing.T) {
 }
 
 func TestFormValidationErrorsShown(t *testing.T) {
-	ts := newWebTestServer(t)
-
-	// Try to register with short password
-	form := url.Values{
-		"username":         {"testuser"},
-		"password":         {"short"},
-		"password_confirm": {"short"},
-		"display_name":     {"Test User"},
-	}
-	rr := ts.post("/auth/register", form)
-
-	// Should re-render form with error
-	assert.Equal(t, http.StatusOK, rr.Code)
-
-	doc := parseHTML(rr.Body)
-	// Should show password error
-	assertContainsText(t, doc, "body", "8 characters")
+	t.Skip("Registration routes removed from UX - underlying logic preserved for future use")
 }
 
 func TestPasswordMismatchError(t *testing.T) {
-	ts := newWebTestServer(t)
-
-	// Try to register with mismatched passwords
-	form := url.Values{
-		"username":         {"testuser"},
-		"password":         {"password123"},
-		"password_confirm": {"different456"},
-		"display_name":     {"Test User"},
-	}
-	rr := ts.post("/auth/register", form)
-
-	// Should re-render form with error
-	assert.Equal(t, http.StatusOK, rr.Code)
-
-	doc := parseHTML(rr.Body)
-	// Should show mismatch error
-	assertContainsText(t, doc, "body", "match")
+	t.Skip("Registration routes removed from UX - underlying logic preserved for future use")
 }
 
 func TestStaticFileServing(t *testing.T) {
