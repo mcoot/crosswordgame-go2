@@ -29,8 +29,30 @@ templ Lobby(data LobbyData) {
 				<div class="lobby-header">
 					<div>
 						<h1>Lobby</h1>
-						<p>Share this code with friends:</p>
-						<span class="lobby-code">{ string(data.Lobby.Code) }</span>
+						<p>Share this link with friends:</p>
+						<div class="lobby-share">
+							<span class="lobby-code" id="lobby-code">{ string(data.Lobby.Code) }</span>
+							<button type="button" class="btn-copy" id="copy-link-btn" data-code={ string(data.Lobby.Code) } title="Copy link to clipboard">
+								<i class="bi bi-copy icon-copy"></i>
+								<i class="bi bi-check-lg icon-check"></i>
+							</button>
+						</div>
+						<script>
+							(function() {
+								var btn = document.getElementById('copy-link-btn');
+								if (!btn) return;
+								btn.addEventListener('click', function() {
+									var code = btn.getAttribute('data-code');
+									var url = window.location.origin + '/lobby/' + code;
+									navigator.clipboard.writeText(url).then(function() {
+										btn.classList.add('copied');
+										setTimeout(function() {
+											btn.classList.remove('copied');
+										}, 2000);
+									});
+								});
+							})();
+						</script>
 					</div>
 					<div>
 						<form hx-post={ "/lobby/" + string(data.Lobby.Code) + "/leave" } hx-swap="none">

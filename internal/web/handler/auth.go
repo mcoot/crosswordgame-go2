@@ -82,6 +82,8 @@ func (h *AuthHandler) CreateGuest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	displayName := strings.TrimSpace(r.FormValue("display_name"))
+	next := r.FormValue("next")
+
 	if displayName == "" {
 		middleware.SetFlash(w, "error", "Display name is required")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -101,7 +103,13 @@ func (h *AuthHandler) CreateGuest(w http.ResponseWriter, r *http.Request) {
 
 	h.setSessionCookie(w, session.Token)
 	middleware.SetFlash(w, "success", "Welcome, "+session.Player.DisplayName+"!")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+
+	// Redirect to original destination or home
+	if next != "" && strings.HasPrefix(next, "/") {
+		http.Redirect(w, r, next, http.StatusSeeOther)
+	} else {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
 }
 
 // Login handles login form submission

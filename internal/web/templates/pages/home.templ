@@ -7,6 +7,7 @@ import (
 
 type HomeData struct {
 	layout.PageData
+	Next string
 }
 
 templ Home(data HomeData) {
@@ -21,6 +22,9 @@ templ Home(data HomeData) {
 					<div class="card">
 						<h3>Select display name</h3>
 						<form action="/auth/guest" method="post" class="form-inline">
+							if data.Next != "" {
+								<input type="hidden" name="next" value={ data.Next }/>
+							}
 							<input type="text" name="display_name" placeholder="Display Name" required maxlength="20" class="input"/>
 							<button type="submit" class="btn btn-primary">Start</button>
 						</form>

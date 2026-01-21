@@ -20,6 +20,7 @@ func NewHomeHandler() *HomeHandler {
 func (h *HomeHandler) Home(w http.ResponseWriter, r *http.Request) {
 	player := middleware.GetPlayer(r.Context())
 	flash := middleware.GetFlash(r.Context())
+	next := r.URL.Query().Get("next")
 
 	data := pages.HomeData{
 		PageData: layout.PageData{
@@ -27,6 +28,7 @@ func (h *HomeHandler) Home(w http.ResponseWriter, r *http.Request) {
 			Player: player,
 			Flash:  flash,
 		},
+		Next: next,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

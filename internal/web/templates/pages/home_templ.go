@@ -15,6 +15,7 @@ import (
 
 type HomeData struct {
 	layout.PageData
+	Next string
 }
 
 func Home(data HomeData) templ.Component {
@@ -55,12 +56,35 @@ func Home(data HomeData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if data.Player == nil {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<section class=\"home-section\"><h2>Get Started</h2><div class=\"card\"><h3>Select display name</h3><form action=\"/auth/guest\" method=\"post\" class=\"form-inline\"><input type=\"text\" name=\"display_name\" placeholder=\"Display Name\" required maxlength=\"20\" class=\"input\"> <button type=\"submit\" class=\"btn btn-primary\">Start</button></form></div></section>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<section class=\"home-section\"><h2>Get Started</h2><div class=\"card\"><h3>Select display name</h3><form action=\"/auth/guest\" method=\"post\" class=\"form-inline\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if data.Next != "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<input type=\"hidden\" name=\"next\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var3 string
+					templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.Next)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/templates/pages/home.templ`, Line: 26, Col: 58}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"> ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<input type=\"text\" name=\"display_name\" placeholder=\"Display Name\" required maxlength=\"20\" class=\"input\"> <button type=\"submit\" class=\"btn btn-primary\">Start</button></form></div></section>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<section class=\"home-section\"><h2>Create or Join a Lobby</h2><div class=\"card-grid\"><div class=\"card\"><h3>Create New Lobby</h3><p>Start a new game lobby and invite others to join.</p><form action=\"/lobby\" method=\"post\" class=\"form-stack\"><div class=\"form-group\"><label for=\"grid_size\">Grid Size</label>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<section class=\"home-section\"><h2>Create or Join a Lobby</h2><div class=\"card-grid\"><div class=\"card\"><h3>Create New Lobby</h3><p>Start a new game lobby and invite others to join.</p><form action=\"/lobby\" method=\"post\" class=\"form-stack\"><div class=\"form-group\"><label for=\"grid_size\">Grid Size</label>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -68,12 +92,12 @@ func Home(data HomeData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div><button type=\"submit\" class=\"btn btn-primary\">Create Lobby</button></form></div><div class=\"card\"><h3>Join Existing Lobby</h3><p>Enter a lobby code to join an existing game.</p><form action=\"/lobby/join\" method=\"post\" class=\"form-stack\"><div class=\"form-group\"><label for=\"code\">Lobby Code</label> <input type=\"text\" name=\"code\" id=\"code\" placeholder=\"ABC123\" required maxlength=\"6\" class=\"input input-uppercase\"></div><button type=\"submit\" class=\"btn btn-secondary\">Join Lobby</button></form></div></div></section>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div><button type=\"submit\" class=\"btn btn-primary\">Create Lobby</button></form></div><div class=\"card\"><h3>Join Existing Lobby</h3><p>Enter a lobby code to join an existing game.</p><form action=\"/lobby/join\" method=\"post\" class=\"form-stack\"><div class=\"form-group\"><label for=\"code\">Lobby Code</label> <input type=\"text\" name=\"code\" id=\"code\" placeholder=\"ABC123\" required maxlength=\"6\" class=\"input input-uppercase\"></div><button type=\"submit\" class=\"btn btn-secondary\">Join Lobby</button></form></div></div></section>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<section class=\"home-section\"><h2>How to Play</h2><ol class=\"rules-list\"><li>Join or create a lobby with friends</li><li>Players take turns announcing a letter</li><li>Everyone places the announced letter on their own grid</li><li>Once grids are full, words are scored horizontally and vertically</li><li>Longer words score more points - full rows/columns score double!</li></ol></section></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<section class=\"home-section\"><h2>How to Play</h2><ol class=\"rules-list\"><li>Join or create a lobby with friends</li><li>Players take turns announcing a letter</li><li>Everyone places the announced letter on their own grid</li><li>Once grids are full, words are scored horizontally and vertically</li><li>Longer words score more points - full rows/columns score double!</li></ol></section></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
