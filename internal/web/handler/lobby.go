@@ -151,6 +151,7 @@ func (h *LobbyHandler) View(w http.ResponseWriter, r *http.Request) {
 	}
 
 	flash := middleware.GetFlash(r.Context())
+	activeLobbyCode := middleware.GetActiveLobbyCode(r.Context())
 
 	// Check if player is host
 	host := lob.GetHost()
@@ -158,9 +159,10 @@ func (h *LobbyHandler) View(w http.ResponseWriter, r *http.Request) {
 
 	data := pages.LobbyData{
 		PageData: layout.PageData{
-			Title:  "Lobby " + string(lob.Code),
-			Player: player,
-			Flash:  flash,
+			Title:           "Lobby " + string(lob.Code),
+			Player:          player,
+			Flash:           flash,
+			ActiveLobbyCode: activeLobbyCode,
 		},
 		Lobby:    lob,
 		IsHost:   isHost,

@@ -128,12 +128,14 @@ func (h *GameHandler) View(w http.ResponseWriter, r *http.Request) {
 	}
 
 	flash := middleware.GetFlash(r.Context())
+	activeLobbyCode := middleware.GetActiveLobbyCode(r.Context())
 
 	data := pages.GameData{
 		PageData: layout.PageData{
-			Title:  "Game - " + string(lob.Code),
-			Player: player,
-			Flash:  flash,
+			Title:           "Game - " + string(lob.Code),
+			Player:          player,
+			Flash:           flash,
+			ActiveLobbyCode: activeLobbyCode,
 		},
 		Lobby:       lob,
 		Game:        g,

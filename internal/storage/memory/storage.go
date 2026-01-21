@@ -134,6 +134,18 @@ func (s *Storage) LobbyExists(ctx context.Context, code model.LobbyCode) (bool, 
 	return ok, nil
 }
 
+func (s *Storage) GetLobbyForPlayer(ctx context.Context, playerID model.PlayerID) (model.LobbyCode, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, lobby := range s.lobbies {
+		if lobby.GetMember(playerID) != nil {
+			return lobby.Code, nil
+		}
+	}
+	return "", nil
+}
+
 // Game operations
 
 func (s *Storage) SaveGame(ctx context.Context, game *model.Game) error {

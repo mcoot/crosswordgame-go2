@@ -155,7 +155,18 @@ func (s *Storage) SaveLobby(ctx context.Context, lobby *model.Lobby) error {
 		return err
 	}
 
-	return s.client.Set(ctx, lobbyKey(lobby.Code), data, s.cfg.LobbyTTL).Err()
+	// Use pipeline for atomic save + index updates
+	pipe := s.client.Pipeline()
+	pipe.Set(ctx, lobbyKey(lobby.Code), data, s.cfg.LobbyTTL)
+
+	// Update player-to-lobby index for all members
+	for _, member := range lobby.Members {
+		indexKey := playerLobbyIndexKey(member.Player.ID)
+		pipe.Set(ctx, indexKey, string(lobby.Code), s.cfg.LobbyTTL)
+	}
+
+	_, err = pipe.Exec(ctx)
+	return err
 }
 
 func (s *Storage) GetLobby(ctx context.Context, code model.LobbyCode) (*model.Lobby, error) {
@@ -175,6 +186,20 @@ func (s *Storage) GetLobby(ctx context.Context, code model.LobbyCode) (*model.Lo
 }
 
 func (s *Storage) DeleteLobby(ctx context.Context, code model.LobbyCode) error {
+	// Get the lobby first to clean up player indexes
+	lobby, err := s.GetLobby(ctx, code)
+	if err == nil && lobby != nil {
+		// Delete player-to-lobby indexes for all members
+		pipe := s.client.Pipeline()
+		for _, member := range lobby.Members {
+			pipe.Del(ctx, playerLobbyIndexKey(member.Player.ID))
+		}
+		pipe.Del(ctx, lobbyKey(code))
+		_, err = pipe.Exec(ctx)
+		return err
+	}
+
+	// If lobby not found, just try to delete the key
 	return s.client.Del(ctx, lobbyKey(code)).Err()
 }
 
@@ -184,6 +209,17 @@ func (s *Storage) LobbyExists(ctx context.Context, code model.LobbyCode) (bool, 
 		return false, err
 	}
 	return exists > 0, nil
+}
+
+func (s *Storage) GetLobbyForPlayer(ctx context.Context, playerID model.PlayerID) (model.LobbyCode, error) {
+	lobbyCode, err := s.client.Get(ctx, playerLobbyIndexKey(playerID)).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return "", nil
+		}
+		return "", err
+	}
+	return model.LobbyCode(lobbyCode), nil
 }
 
 // Game operations

@@ -4,9 +4,10 @@ import "github.com/mcoot/crosswordgame-go2/internal/model"
 
 // PageData contains common data passed to all pages
 type PageData struct {
-	Title   string
-	Player  *model.Player // nil if not authenticated
-	Flash   *FlashMessage
+	Title           string
+	Player          *model.Player // nil if not authenticated
+	Flash           *FlashMessage
+	ActiveLobbyCode model.LobbyCode
 }
 
 // FlashMessage represents a one-time notification
@@ -28,7 +29,7 @@ templ Base(data PageData) {
 			<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/sse.js"></script>
 		</head>
 		<body>
-			@Nav(data.Player)
+			@Nav(data.Player, data.ActiveLobbyCode)
 			<main class="container">
 				if data.Flash != nil {
 					@Flash(data.Flash)
@@ -39,12 +40,17 @@ templ Base(data PageData) {
 	</html>
 }
 
-templ Nav(player *model.Player) {
+templ Nav(player *model.Player, activeLobbyCode model.LobbyCode) {
 	<nav class="nav">
 		<div class="nav-brand">
 			<a href="/">Crossword Game</a>
 		</div>
 		<div class="nav-menu">
+			if activeLobbyCode != "" {
+				<a href={ templ.SafeURL("/lobby/" + string(activeLobbyCode)) } class="btn btn-secondary btn-sm">
+					Return to Lobby
+				</a>
+			}
 			if player != nil {
 				<span class="nav-player">{ player.DisplayName }</span>
 				<form action="/auth/logout" method="post" class="nav-form">

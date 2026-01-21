@@ -20,13 +20,15 @@ func NewHomeHandler() *HomeHandler {
 func (h *HomeHandler) Home(w http.ResponseWriter, r *http.Request) {
 	player := middleware.GetPlayer(r.Context())
 	flash := middleware.GetFlash(r.Context())
+	activeLobbyCode := middleware.GetActiveLobbyCode(r.Context())
 	next := r.URL.Query().Get("next")
 
 	data := pages.HomeData{
 		PageData: layout.PageData{
-			Title:  "Home",
-			Player: player,
-			Flash:  flash,
+			Title:           "Home",
+			Player:          player,
+			Flash:           flash,
+			ActiveLobbyCode: activeLobbyCode,
 		},
 		Next: next,
 	}

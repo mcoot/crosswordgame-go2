@@ -38,6 +38,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	flashMiddleware := middleware.Flash()
 	authMiddleware := middleware.Auth(cfg.AuthService)
 	optionalAuthMiddleware := middleware.OptionalAuth(cfg.AuthService)
+	activeLobbyMiddleware := middleware.ActiveLobby(cfg.LobbyController)
 
 	// Apply global middleware to all routes
 	r.Use(recoveryMiddleware)
@@ -65,12 +66,14 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	public := r.NewRoute().Subrouter()
 	public.Use(flashMiddleware)
 	public.Use(optionalAuthMiddleware)
+	public.Use(activeLobbyMiddleware)
 	public.HandleFunc("/", homeHandler.Home).Methods(http.MethodGet)
 
 	// Auth actions (no auth required)
 	authRoutes := r.PathPrefix("/auth").Subrouter()
 	authRoutes.Use(flashMiddleware)
 	authRoutes.Use(optionalAuthMiddleware)
+	authRoutes.Use(activeLobbyMiddleware)
 	authRoutes.HandleFunc("/guest", authHandler.CreateGuest).Methods(http.MethodPost)
 	authRoutes.HandleFunc("/logout", authHandler.Logout).Methods(http.MethodPost)
 
@@ -78,6 +81,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	protected := r.NewRoute().Subrouter()
 	protected.Use(flashMiddleware)
 	protected.Use(authMiddleware)
+	protected.Use(activeLobbyMiddleware)
 
 	// Lobby routes
 	protected.HandleFunc("/lobby", lobbyHandler.Create).Methods(http.MethodPost)

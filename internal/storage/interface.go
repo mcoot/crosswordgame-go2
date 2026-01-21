@@ -23,6 +23,7 @@ type Storage interface {
 	GetLobby(ctx context.Context, code model.LobbyCode) (*model.Lobby, error)
 	DeleteLobby(ctx context.Context, code model.LobbyCode) error
 	LobbyExists(ctx context.Context, code model.LobbyCode) (bool, error)
+	GetLobbyForPlayer(ctx context.Context, playerID model.PlayerID) (model.LobbyCode, error)
 
 	// Game operations
 	SaveGame(ctx context.Context, game *model.Game) error

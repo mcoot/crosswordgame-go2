@@ -100,6 +100,11 @@ func (c *Controller) GetLobby(ctx context.Context, code model.LobbyCode) (*model
 	return c.storage.GetLobby(ctx, code)
 }
 
+// GetActiveLobbyCode returns the lobby code for a player's active lobby, if any
+func (c *Controller) GetActiveLobbyCode(ctx context.Context, playerID model.PlayerID) (model.LobbyCode, error) {
+	return c.storage.GetLobbyForPlayer(ctx, playerID)
+}
+
 // JoinLobby adds a player to a lobby
 func (c *Controller) JoinLobby(ctx context.Context, code model.LobbyCode, player model.Player) error {
 	lobby, err := c.storage.GetLobby(ctx, code)
@@ -399,6 +404,7 @@ func (c *Controller) UpdateConfig(ctx context.Context, code model.LobbyCode, req
 type ControllerInterface interface {
 	CreateLobby(ctx context.Context, host model.Player) (*model.Lobby, error)
 	GetLobby(ctx context.Context, code model.LobbyCode) (*model.Lobby, error)
+	GetActiveLobbyCode(ctx context.Context, playerID model.PlayerID) (model.LobbyCode, error)
 	JoinLobby(ctx context.Context, code model.LobbyCode, player model.Player) error
 	LeaveLobby(ctx context.Context, code model.LobbyCode, playerID model.PlayerID) error
 	SetRole(ctx context.Context, code model.LobbyCode, playerID model.PlayerID, role model.LobbyMemberRole) error

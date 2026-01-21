@@ -31,6 +31,11 @@ func lobbyKey(code model.LobbyCode) string {
 	return fmt.Sprintf("%s:lobby:%s", keyPrefix, code)
 }
 
+// playerLobbyIndexKey returns the Redis key for the player -> lobby_code index
+func playerLobbyIndexKey(playerID model.PlayerID) string {
+	return fmt.Sprintf("%s:idx:player_lobby:%s", keyPrefix, playerID)
+}
+
 // gameKey returns the Redis key for a Game
 func gameKey(id model.GameID) string {
 	return fmt.Sprintf("%s:game:%s", keyPrefix, id)

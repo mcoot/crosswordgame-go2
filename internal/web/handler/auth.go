@@ -33,12 +33,14 @@ func (h *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	flash := middleware.GetFlash(r.Context())
+	activeLobbyCode := middleware.GetActiveLobbyCode(r.Context())
 	next := r.URL.Query().Get("next")
 
 	data := pages.LoginData{
 		PageData: layout.PageData{
-			Title: "Login",
-			Flash: flash,
+			Title:           "Login",
+			Flash:           flash,
+			ActiveLobbyCode: activeLobbyCode,
 		},
 		Next: next,
 	}
@@ -59,11 +61,13 @@ func (h *AuthHandler) RegisterPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	flash := middleware.GetFlash(r.Context())
+	activeLobbyCode := middleware.GetActiveLobbyCode(r.Context())
 
 	data := pages.RegisterData{
 		PageData: layout.PageData{
-			Title: "Register",
-			Flash: flash,
+			Title:           "Register",
+			Flash:           flash,
+			ActiveLobbyCode: activeLobbyCode,
 		},
 		FieldErrors: make(map[string]string),
 	}
@@ -240,9 +244,11 @@ func (h *AuthHandler) renderLoginError(w http.ResponseWriter, r *http.Request, e
 }
 
 func (h *AuthHandler) renderLoginErrorWithData(w http.ResponseWriter, r *http.Request, errorMsg, username, next string) {
+	activeLobbyCode := middleware.GetActiveLobbyCode(r.Context())
 	data := pages.LoginData{
 		PageData: layout.PageData{
-			Title: "Login",
+			Title:           "Login",
+			ActiveLobbyCode: activeLobbyCode,
 		},
 		Username: username,
 		Error:    errorMsg,
@@ -260,9 +266,11 @@ func (h *AuthHandler) renderRegisterError(w http.ResponseWriter, r *http.Request
 		fieldErrors = make(map[string]string)
 	}
 
+	activeLobbyCode := middleware.GetActiveLobbyCode(r.Context())
 	data := pages.RegisterData{
 		PageData: layout.PageData{
-			Title: "Register",
+			Title:           "Register",
+			ActiveLobbyCode: activeLobbyCode,
 		},
 		Username:    username,
 		DisplayName: displayName,
