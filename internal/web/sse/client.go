@@ -71,7 +71,7 @@ func ServeSSE(w http.ResponseWriter, r *http.Request, hub *Hub, playerID model.P
 	writeWithDeadline := func(data []byte) error {
 		// Extend write deadline before each write to prevent timeout
 		if err := rc.SetWriteDeadline(time.Now().Add(writeDeadlineExtension)); err != nil {
-			logger.Debug("sse failed to set write deadline", slog.Any("error", err))
+			logger.Warn("sse failed to set write deadline", slog.Any("error", err))
 		}
 		_, err := w.Write(data)
 		return err

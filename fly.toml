@@ -20,6 +20,9 @@ primary_region = 'syd'
   min_machines_running = 1
   processes = ['app']
 
+  [http_service.http_options]
+    idle_timeout = 600  # 10 minutes - prevents Fly.io proxy from terminating SSE connections
+
   [http_service.concurrency]
     type = 'connections'
     hard_limit = 100
