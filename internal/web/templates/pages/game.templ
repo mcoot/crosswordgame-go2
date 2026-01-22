@@ -39,7 +39,7 @@ templ Game(data GameData) {
 			@components.SSEStatus()
 			<div class="game-main">
 				<div id="game-status">
-					@components.GameStatus(data.Game, data.IsAnnouncer, data.HasPlaced)
+					@components.GameStatus(data.Game, data.IsAnnouncer, data.HasPlaced, data.PlayerNames[data.Game.CurrentAnnouncer()])
 				</div>
 
 				if !data.IsSpectator && data.MyBoard != nil {

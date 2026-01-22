@@ -311,7 +311,8 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 
 	// 2. Updated game status ("Waiting for other players...")
 	buf.WriteString(`<div id="game-status" hx-swap-oob="true">`)
-	_ = components.GameStatus(g, false, true).Render(r.Context(), &buf)
+	announcerName := getPlayerName(lob, g.CurrentAnnouncer())
+	_ = components.GameStatus(g, false, true, announcerName).Render(r.Context(), &buf)
 	buf.WriteString(`</div>`)
 
 	// 3. Updated placement count
@@ -433,4 +434,14 @@ func countPlacements(g *model.Game) int {
 		}
 	}
 	return count
+}
+
+// getPlayerName returns the display name for a player ID from the lobby members
+func getPlayerName(lob *model.Lobby, playerID model.PlayerID) string {
+	for _, m := range lob.Members {
+		if m.Player.ID == playerID {
+			return m.Player.DisplayName
+		}
+	}
+	return ""
 }

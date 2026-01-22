@@ -2,7 +2,7 @@ package components
 
 import "github.com/mcoot/crosswordgame-go2/internal/model"
 
-templ GameStatus(game *model.Game, isAnnouncer bool, hasPlaced bool) {
+templ GameStatus(game *model.Game, isAnnouncer bool, hasPlaced bool, announcerName string) {
 	<div class="game-status card">
 		switch game.State {
 		case model.GameStateAnnouncing:
@@ -11,7 +11,7 @@ templ GameStatus(game *model.Game, isAnnouncer bool, hasPlaced bool) {
 				<p>Choose a letter for everyone to place.</p>
 			} else {
 				<h2>Waiting for Letter</h2>
-				<p>The announcer is choosing a letter...</p>
+				<p>{ announcerName } is choosing a letter...</p>
 			}
 		case model.GameStatePlacing:
 			<h2>Placing</h2>

@@ -88,8 +88,8 @@ func (b *Broadcaster) BroadcastGameStatus(ctx context.Context, game *model.Game,
 	// For game status, we broadcast a simple update that triggers a refresh
 	// This is simpler than trying to render personalized views for each player
 	var buf bytes.Buffer
-	// We pass isAnnouncer=false and hasPlaced=false - clients will refresh to get accurate state
-	err := components.GameStatus(game, false, false).Render(ctx, &buf)
+	// We pass isAnnouncer=false, hasPlaced=false, and empty announcerName - clients will refresh to get accurate state
+	err := components.GameStatus(game, false, false, "").Render(ctx, &buf)
 	if err != nil {
 		b.logger.Error("sse failed to render game status",
 			slog.String("lobby", string(lobbyCode)),
