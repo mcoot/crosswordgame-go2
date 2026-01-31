@@ -10,6 +10,7 @@ import (
 
 	"github.com/mcoot/crosswordgame-go2/internal/model"
 	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
+	"github.com/mcoot/crosswordgame-go2/internal/services/bot"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
 	"github.com/mcoot/crosswordgame-go2/internal/web/middleware"
 	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
@@ -21,15 +22,17 @@ import (
 type LobbyHandler struct {
 	lobbyController *lobby.Controller
 	authService     *auth.Service
+	botService      *bot.Service
 	hubManager      *sse.HubManager
 	broadcaster     *sse.Broadcaster
 }
 
 // NewLobbyHandler creates a new LobbyHandler
-func NewLobbyHandler(lobbyController *lobby.Controller, authService *auth.Service, hubManager *sse.HubManager, logger *slog.Logger) *LobbyHandler {
+func NewLobbyHandler(lobbyController *lobby.Controller, authService *auth.Service, botService *bot.Service, hubManager *sse.HubManager, logger *slog.Logger) *LobbyHandler {
 	return &LobbyHandler{
 		lobbyController: lobbyController,
 		authService:     authService,
+		botService:      botService,
 		hubManager:      hubManager,
 		broadcaster:     sse.NewBroadcaster(hubManager, logger),
 	}
@@ -324,6 +327,68 @@ func (h *LobbyHandler) TransferHost(w http.ResponseWriter, r *http.Request) {
 	h.broadcaster.BroadcastRefresh(code)
 
 	// SSE broadcast handles the UI update, so just return 204
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// AddBot handles adding a bot to the lobby
+func (h *LobbyHandler) AddBot(w http.ResponseWriter, r *http.Request) {
+	player := middleware.GetPlayer(r.Context())
+	if player == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	code := model.LobbyCode(vars["code"])
+
+	_, err := h.botService.AddBotToLobby(r.Context(), code, player.ID)
+	if err != nil {
+		middleware.SetFlash(w, "error", "Could not add bot: "+err.Error())
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code))
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Broadcast member list update
+	lob, _ := h.lobbyController.GetLobby(r.Context(), code)
+	if lob != nil {
+		h.broadcaster.BroadcastMemberListUpdate(r.Context(), lob)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// RemoveBot handles removing a bot from the lobby
+func (h *LobbyHandler) RemoveBot(w http.ResponseWriter, r *http.Request) {
+	player := middleware.GetPlayer(r.Context())
+	if player == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	code := model.LobbyCode(vars["code"])
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	botPlayerID := model.PlayerID(r.FormValue("bot_player_id"))
+	err := h.botService.RemoveBotFromLobby(r.Context(), code, player.ID, botPlayerID)
+	if err != nil {
+		middleware.SetFlash(w, "error", "Could not remove bot: "+err.Error())
+		w.Header().Set("HX-Redirect", "/lobby/"+string(code))
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Broadcast member list update
+	lob, _ := h.lobbyController.GetLobby(r.Context(), code)
+	if lob != nil {
+		h.broadcaster.BroadcastMemberListUpdate(r.Context(), lob)
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 

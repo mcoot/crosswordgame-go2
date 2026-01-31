@@ -12,6 +12,7 @@ type Player struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"display_name"`
 	IsGuest     bool   `json:"is_guest"`
+	IsBot       bool   `json:"is_bot,omitempty"`
 }
 
 // PlayerFromModel converts a model.Player to a response Player
@@ -20,6 +21,7 @@ func PlayerFromModel(p *model.Player) Player {
 		ID:          string(p.ID),
 		DisplayName: p.DisplayName,
 		IsGuest:     p.IsGuest,
+		IsBot:       p.IsBot,
 	}
 }
 
@@ -55,6 +57,7 @@ type LobbyMember struct {
 	DisplayName string `json:"display_name"`
 	Role        string `json:"role"`
 	IsHost      bool   `json:"is_host"`
+	IsBot       bool   `json:"is_bot,omitempty"`
 }
 
 // LobbyMemberFromModel converts model.LobbyMember
@@ -64,6 +67,7 @@ func LobbyMemberFromModel(m model.LobbyMember) LobbyMember {
 		DisplayName: m.Player.DisplayName,
 		Role:        string(m.Role),
 		IsHost:      m.IsHost,
+		IsBot:       m.Player.IsBot,
 	}
 }
 

@@ -44,6 +44,7 @@ func newWebTestServer(t *testing.T) *webTestServer {
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
 		ScoringService:  app.ScoringService,
+		BotService:      app.BotService,
 		HubManager:      app.HubManager,
 		StaticDir:       "", // No static files in tests
 	})

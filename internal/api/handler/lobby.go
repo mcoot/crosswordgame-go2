@@ -11,6 +11,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/api/request"
 	"github.com/mcoot/crosswordgame-go2/internal/api/response"
 	"github.com/mcoot/crosswordgame-go2/internal/model"
+	"github.com/mcoot/crosswordgame-go2/internal/services/bot"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
 	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
 )
@@ -18,18 +19,20 @@ import (
 // LobbyHandler handles lobby-related endpoints
 type LobbyHandler struct {
 	lobbyController *lobby.Controller
+	botService      *bot.Service
 	hubManager      *sse.HubManager
 	broadcaster     *sse.Broadcaster
 }
 
 // NewLobbyHandler creates a new lobby handler
-func NewLobbyHandler(lobbyController *lobby.Controller, hubManager *sse.HubManager, logger *slog.Logger) *LobbyHandler {
+func NewLobbyHandler(lobbyController *lobby.Controller, botService *bot.Service, hubManager *sse.HubManager, logger *slog.Logger) *LobbyHandler {
 	var broadcaster *sse.Broadcaster
 	if hubManager != nil {
 		broadcaster = sse.NewBroadcaster(hubManager, logger)
 	}
 	return &LobbyHandler{
 		lobbyController: lobbyController,
+		botService:      botService,
 		hubManager:      hubManager,
 		broadcaster:     broadcaster,
 	}
@@ -220,6 +223,55 @@ func (h *LobbyHandler) TransferHost(w http.ResponseWriter, r *http.Request) {
 	// Broadcast refresh to SSE clients
 	if b := h.getBroadcaster(); b != nil {
 		b.BroadcastRefresh(code)
+	}
+
+	response.NoContent(w)
+}
+
+// AddBot handles POST /api/v1/lobbies/{code}/bots
+func (h *LobbyHandler) AddBot(w http.ResponseWriter, r *http.Request) {
+	player := middleware.MustGetPlayer(r.Context())
+	code := model.LobbyCode(mux.Vars(r)["code"])
+
+	botPlayer, err := h.botService.AddBotToLobby(r.Context(), code, player.ID)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+
+	lobby, err := h.lobbyController.GetLobby(r.Context(), code)
+	if err != nil {
+		WriteError(w, err)
+		return
+	}
+
+	// Broadcast member list update to SSE clients
+	if b := h.getBroadcaster(); b != nil {
+		b.BroadcastMemberListUpdate(r.Context(), lobby)
+	}
+
+	_ = botPlayer // included in lobby response
+	response.JSON(w, http.StatusCreated, response.LobbyFromModel(lobby))
+}
+
+// RemoveBot handles DELETE /api/v1/lobbies/{code}/bots/{player_id}
+func (h *LobbyHandler) RemoveBot(w http.ResponseWriter, r *http.Request) {
+	player := middleware.MustGetPlayer(r.Context())
+	vars := mux.Vars(r)
+	code := model.LobbyCode(vars["code"])
+	botPlayerID := model.PlayerID(vars["player_id"])
+
+	if err := h.botService.RemoveBotFromLobby(r.Context(), code, player.ID, botPlayerID); err != nil {
+		WriteError(w, err)
+		return
+	}
+
+	// Broadcast member list update to SSE clients
+	if b := h.getBroadcaster(); b != nil {
+		lobby, _ := h.lobbyController.GetLobby(r.Context(), code)
+		if lobby != nil {
+			b.BroadcastMemberListUpdate(r.Context(), lobby)
+		}
 	}
 
 	response.NoContent(w)

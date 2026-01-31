@@ -292,6 +292,158 @@ func (s *IntegrationSuite) TestScoringWithRealWords() {
 	s.Equal(6, scores[0].TotalScore)
 }
 
+// Test: Bot game flow - 1 human + 1 bot on 2x2 grid
+func (s *IntegrationSuite) TestBotGameFlow() {
+	s.app.MockRandom.QueueString("LOBBY1")
+
+	host := s.createPlayer("host", "Host Player")
+	lobby, err := s.app.LobbyController.CreateLobby(s.ctx, host)
+	s.Require().NoError(err)
+
+	// Add a bot to the lobby
+	s.app.MockRandom.QueueString("botplayer1abcdef")
+	botPlayer, err := s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+	s.Require().NoError(err)
+	s.True(botPlayer.IsBot)
+
+	// Configure and start game
+	_ = s.app.LobbyController.UpdateConfig(s.ctx, lobby.Code, host.ID, model.LobbyConfig{GridSize: 2})
+	s.app.MockRandom.QueueString("GAME01")
+	game, err := s.app.LobbyController.StartGame(s.ctx, lobby.Code, host.ID)
+	s.Require().NoError(err)
+	s.Len(game.Players, 2)
+
+	// Queue random values for bot actions
+	for range 20 {
+		s.app.MockRandom.QueueIntn(0)
+	}
+
+	// Process any initial bot actions (if bot is first announcer)
+	_, _ = s.app.BotService.ProcessBotActions(s.ctx, game.ID)
+
+	// Play through: host announces and places each turn, bot auto-places
+	for turn := 0; turn < 4; turn++ {
+		updatedGame, _ := s.app.GameController.GetGame(s.ctx, game.ID)
+		if updatedGame.State == model.GameStateScoring {
+			break
+		}
+
+		if updatedGame.State == model.GameStateAnnouncing && updatedGame.CurrentAnnouncer() == host.ID {
+			_ = s.app.GameController.AnnounceLetter(s.ctx, game.ID, host.ID, rune('A'+turn))
+			// Bot should auto-place after announcement
+			s.app.MockRandom.QueueIntn(0)
+			_, _ = s.app.BotService.ProcessBotActions(s.ctx, game.ID)
+		}
+
+		updatedGame, _ = s.app.GameController.GetGame(s.ctx, game.ID)
+		if updatedGame.State == model.GameStatePlacing && !updatedGame.Placements[host.ID] {
+			_ = s.app.GameController.PlaceLetter(s.ctx, game.ID, host.ID, model.Position{Row: turn / 2, Col: turn % 2})
+			// Process bot actions after host places
+			for range 5 {
+				s.app.MockRandom.QueueIntn(0)
+			}
+			_, _ = s.app.BotService.ProcessBotActions(s.ctx, game.ID)
+		}
+	}
+
+	// Verify game completed
+	finalGame, err := s.app.GameController.GetGame(s.ctx, game.ID)
+	s.Require().NoError(err)
+	s.Equal(model.GameStateScoring, finalGame.State)
+}
+
+// Test: All bots game - 1 human host + 2 bots
+func (s *IntegrationSuite) TestAllBotsGame() {
+	s.app.MockRandom.QueueString("LOBBY1")
+
+	host := s.createPlayer("host", "Host")
+	lobby, _ := s.app.LobbyController.CreateLobby(s.ctx, host)
+
+	s.app.MockRandom.QueueString("bot1abcdefghijkl")
+	_, _ = s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+
+	s.app.MockRandom.QueueString("bot2abcdefghijkl")
+	_, _ = s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+
+	_ = s.app.LobbyController.UpdateConfig(s.ctx, lobby.Code, host.ID, model.LobbyConfig{GridSize: 2})
+	s.app.MockRandom.QueueString("GAME01")
+	game, _ := s.app.LobbyController.StartGame(s.ctx, lobby.Code, host.ID)
+
+	// Queue enough random values for the whole game
+	for range 50 {
+		s.app.MockRandom.QueueIntn(0)
+	}
+
+	// Host announces, places, then bots cascade
+	for turn := 0; turn < 4; turn++ {
+		g, _ := s.app.GameController.GetGame(s.ctx, game.ID)
+		if g.State == model.GameStateScoring {
+			break
+		}
+
+		if g.State == model.GameStateAnnouncing && g.CurrentAnnouncer() == host.ID {
+			_ = s.app.GameController.AnnounceLetter(s.ctx, game.ID, host.ID, rune('A'+turn))
+			_, _ = s.app.BotService.ProcessBotActions(s.ctx, game.ID)
+		}
+
+		g, _ = s.app.GameController.GetGame(s.ctx, game.ID)
+		if g.State == model.GameStatePlacing && !g.Placements[host.ID] {
+			_ = s.app.GameController.PlaceLetter(s.ctx, game.ID, host.ID, model.Position{Row: turn / 2, Col: turn % 2})
+			_, _ = s.app.BotService.ProcessBotActions(s.ctx, game.ID)
+		}
+	}
+
+	finalGame, _ := s.app.GameController.GetGame(s.ctx, game.ID)
+	s.Equal(model.GameStateScoring, finalGame.State)
+}
+
+// Test: Add and remove bot from lobby
+func (s *IntegrationSuite) TestAddRemoveBot() {
+	s.app.MockRandom.QueueString("LOBBY1")
+	host := s.createPlayer("host", "Host")
+	lobby, _ := s.app.LobbyController.CreateLobby(s.ctx, host)
+
+	// Add bot
+	s.app.MockRandom.QueueString("bot1abcdefghijkl")
+	botPlayer, err := s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+	s.Require().NoError(err)
+
+	updatedLobby, _ := s.app.LobbyController.GetLobby(s.ctx, lobby.Code)
+	s.Len(updatedLobby.Members, 2)
+
+	// Remove bot
+	err = s.app.BotService.RemoveBotFromLobby(s.ctx, lobby.Code, host.ID, botPlayer.ID)
+	s.Require().NoError(err)
+
+	updatedLobby, _ = s.app.LobbyController.GetLobby(s.ctx, lobby.Code)
+	s.Len(updatedLobby.Members, 1)
+}
+
+// Test: Bot in lobby starts game with bot as player
+func (s *IntegrationSuite) TestBotInLobbyStartsGame() {
+	s.app.MockRandom.QueueString("LOBBY1")
+	host := s.createPlayer("host", "Host")
+	lobby, _ := s.app.LobbyController.CreateLobby(s.ctx, host)
+
+	s.app.MockRandom.QueueString("bot1abcdefghijkl")
+	botPlayer, _ := s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+
+	_ = s.app.LobbyController.UpdateConfig(s.ctx, lobby.Code, host.ID, model.LobbyConfig{GridSize: 2})
+	s.app.MockRandom.QueueString("GAME01")
+	game, err := s.app.LobbyController.StartGame(s.ctx, lobby.Code, host.ID)
+	s.Require().NoError(err)
+
+	// Bot should be in the game players list
+	foundBot := false
+	for _, pid := range game.Players {
+		if pid == botPlayer.ID {
+			foundBot = true
+			break
+		}
+	}
+	s.True(foundBot, "bot should be in game players list")
+}
+
 // Test: Multiple games in same lobby
 func (s *IntegrationSuite) TestMultipleGamesInLobby() {
 	s.app.MockRandom.QueueString("LOBBY1", "GAME01", "GAME02")

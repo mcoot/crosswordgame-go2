@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/mcoot/crosswordgame-go2/internal/model"
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
+	"github.com/mcoot/crosswordgame-go2/internal/services/bot"
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
 	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
@@ -27,17 +29,19 @@ type GameHandler struct {
 	gameController  *game.Controller
 	boardService    *board.Service
 	scoringService  *scoring.Service
+	botService      *bot.Service
 	hubManager      *sse.HubManager
 	broadcaster     *sse.Broadcaster
 }
 
 // NewGameHandler creates a new GameHandler
-func NewGameHandler(lobbyController *lobby.Controller, gameController *game.Controller, boardService *board.Service, scoringService *scoring.Service, hubManager *sse.HubManager, logger *slog.Logger) *GameHandler {
+func NewGameHandler(lobbyController *lobby.Controller, gameController *game.Controller, boardService *board.Service, scoringService *scoring.Service, botService *bot.Service, hubManager *sse.HubManager, logger *slog.Logger) *GameHandler {
 	return &GameHandler{
 		lobbyController: lobbyController,
 		gameController:  gameController,
 		boardService:    boardService,
 		scoringService:  scoringService,
+		botService:      botService,
 		hubManager:      hubManager,
 		broadcaster:     sse.NewBroadcaster(hubManager, logger),
 	}
@@ -177,6 +181,11 @@ func (h *GameHandler) Start(w http.ResponseWriter, r *http.Request) {
 	// Broadcast game started to all lobby clients
 	h.broadcaster.BroadcastGameStarted(code)
 
+	// Process bot actions after game start
+	if lob, err := h.lobbyController.GetLobby(r.Context(), code); err == nil && lob.CurrentGame != nil {
+		h.processBotActions(r.Context(), *lob.CurrentGame, code)
+	}
+
 	// Use HX-Redirect for HTMX-aware client-side navigation
 	w.Header().Set("HX-Redirect", "/lobby/"+string(code)+"/game")
 	w.WriteHeader(http.StatusNoContent)
@@ -228,6 +237,9 @@ func (h *GameHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	if g != nil {
 		h.broadcaster.BroadcastLetterAnnounced(r.Context(), g, code)
 	}
+
+	// Process bot actions after announcement
+	h.processBotActions(r.Context(), *lob.CurrentGame, code)
 
 	// SSE broadcast handles the UI update, so just return 204
 	w.WriteHeader(http.StatusNoContent)
@@ -297,6 +309,11 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 			// All placed, new turn started - tell clients to refresh
 			h.broadcaster.BroadcastTurnComplete(r.Context(), g, code)
 		}
+	}
+
+	// Process bot actions after placement (only if game still active)
+	if g != nil && g.State != model.GameStateScoring && g.State != model.GameStateAbandoned {
+		h.processBotActions(r.Context(), *lob.CurrentGame, code)
 	}
 
 	// Return OOB swaps to update the placing player's UI immediately
@@ -423,6 +440,40 @@ func (h *GameHandler) Dismiss(w http.ResponseWriter, r *http.Request) {
 	// Use HX-Redirect for HTMX-aware client-side navigation to lobby
 	w.Header().Set("HX-Redirect", "/lobby/"+string(code))
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// processBotActions runs bot actions and broadcasts SSE updates
+func (h *GameHandler) processBotActions(ctx context.Context, gameID model.GameID, code model.LobbyCode) {
+	if h.botService == nil {
+		return
+	}
+
+	actions, err := h.botService.ProcessBotActions(ctx, gameID)
+	if err != nil || len(actions) == 0 {
+		return
+	}
+
+	for _, action := range actions {
+		switch action.Type {
+		case bot.ActionAnnounce:
+			g, err := h.gameController.GetGame(ctx, gameID)
+			if err == nil {
+				h.broadcaster.BroadcastLetterAnnounced(ctx, g, code)
+			}
+		case bot.ActionPlace:
+			g, err := h.gameController.GetGame(ctx, gameID)
+			if err == nil {
+				h.broadcaster.BroadcastPlacementUpdate(ctx, g, code, action.PlayerID)
+			}
+		case bot.ActionTurnComplete:
+			g, err := h.gameController.GetGame(ctx, gameID)
+			if err == nil {
+				h.broadcaster.BroadcastTurnComplete(ctx, g, code)
+			}
+		case bot.ActionGameComplete:
+			h.broadcaster.BroadcastGameComplete(code)
+		}
+	}
 }
 
 // countPlacements counts how many players have placed in the current turn

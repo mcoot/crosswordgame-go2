@@ -43,6 +43,7 @@ func newTestServer(t *testing.T) *testServer {
 		LobbyController: app.LobbyController,
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
+		BotService:      app.BotService,
 		HubManager:      app.HubManager,
 	})
 
@@ -340,6 +341,151 @@ func TestLeaveLobby(t *testing.T) {
 	err := json.Unmarshal(rr.Body.Bytes(), &lobbyResp)
 	require.NoError(t, err)
 	assert.Len(t, lobbyResp.Members, 1)
+}
+
+func TestAddBotToLobby(t *testing.T) {
+	ts := newTestServer(t)
+
+	// Create host
+	token := createGuestPlayer(t, ts, "Alice")
+
+	// Create lobby
+	lobbyCode := createLobby(t, ts, token, 3)
+
+	// Add bot
+	rr := ts.request(http.MethodPost, "/api/v1/lobbies/"+lobbyCode+"/bots", nil, token)
+	assert.Equal(t, http.StatusCreated, rr.Code)
+
+	var lobbyResp response.Lobby
+	err := json.Unmarshal(rr.Body.Bytes(), &lobbyResp)
+	require.NoError(t, err)
+
+	// Should have 2 members: host + bot
+	assert.Len(t, lobbyResp.Members, 2)
+
+	// Find the bot member
+	var botMember *response.LobbyMember
+	for i, m := range lobbyResp.Members {
+		if m.IsBot {
+			botMember = &lobbyResp.Members[i]
+			break
+		}
+	}
+	require.NotNil(t, botMember, "should have a bot member")
+	assert.True(t, botMember.IsBot)
+	assert.Equal(t, "Bot 1", botMember.DisplayName)
+}
+
+func TestRemoveBotFromLobby(t *testing.T) {
+	ts := newTestServer(t)
+
+	token := createGuestPlayer(t, ts, "Alice")
+	lobbyCode := createLobby(t, ts, token, 3)
+
+	// Add bot
+	rr := ts.request(http.MethodPost, "/api/v1/lobbies/"+lobbyCode+"/bots", nil, token)
+	require.Equal(t, http.StatusCreated, rr.Code)
+
+	var lobbyResp response.Lobby
+	err := json.Unmarshal(rr.Body.Bytes(), &lobbyResp)
+	require.NoError(t, err)
+
+	// Find the bot's player ID
+	var botPlayerID string
+	for _, m := range lobbyResp.Members {
+		if m.IsBot {
+			botPlayerID = m.PlayerID
+			break
+		}
+	}
+	require.NotEmpty(t, botPlayerID)
+
+	// Remove bot
+	rr = ts.request(http.MethodDelete, "/api/v1/lobbies/"+lobbyCode+"/bots/"+botPlayerID, nil, token)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+
+	// Verify bot is gone
+	rr = ts.request(http.MethodGet, "/api/v1/lobbies/"+lobbyCode, nil, token)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	err = json.Unmarshal(rr.Body.Bytes(), &lobbyResp)
+	require.NoError(t, err)
+	assert.Len(t, lobbyResp.Members, 1) // Only host
+}
+
+func TestGameWithBot(t *testing.T) {
+	ts := newTestServer(t)
+
+	// Create host
+	token := createGuestPlayer(t, ts, "Alice")
+	lobbyCode := createLobby(t, ts, token, 2) // 2x2 grid = 4 turns
+
+	// Add bot
+	rr := ts.request(http.MethodPost, "/api/v1/lobbies/"+lobbyCode+"/bots", nil, token)
+	require.Equal(t, http.StatusCreated, rr.Code)
+
+	// Start game
+	rr = ts.request(http.MethodPost, "/api/v1/lobbies/"+lobbyCode+"/game", nil, token)
+	assert.Equal(t, http.StatusCreated, rr.Code)
+
+	var gameResp response.GameState
+	err := json.Unmarshal(rr.Body.Bytes(), &gameResp)
+	require.NoError(t, err)
+	assert.Equal(t, "announcing", gameResp.State)
+	assert.Len(t, gameResp.Players, 2) // Host + bot
+
+	// Play through the game
+	for turn := 0; turn < 4; turn++ {
+		// Get current game state
+		rr = ts.request(http.MethodGet, "/api/v1/lobbies/"+lobbyCode+"/game", nil, token)
+		require.Equal(t, http.StatusOK, rr.Code)
+		err = json.Unmarshal(rr.Body.Bytes(), &gameResp)
+		require.NoError(t, err)
+
+		if gameResp.State == "scoring" {
+			break // Game complete
+		}
+
+		if gameResp.State == "announcing" {
+			// Human announces (if it's our turn)
+			if gameResp.CurrentAnnouncer == gameResp.Players[0] || gameResp.CurrentAnnouncer == gameResp.Players[1] {
+				// Try announcing as the host
+				announceBody := map[string]string{"letter": string(rune('A' + turn))}
+				rr = ts.request(http.MethodPost, "/api/v1/lobbies/"+lobbyCode+"/game/announce", announceBody, token)
+				if rr.Code != http.StatusOK {
+					// Bot was the announcer and already announced via ProcessBotActions
+					// Refresh state
+					rr = ts.request(http.MethodGet, "/api/v1/lobbies/"+lobbyCode+"/game", nil, token)
+					err = json.Unmarshal(rr.Body.Bytes(), &gameResp)
+					require.NoError(t, err)
+				}
+			}
+		}
+
+		if gameResp.State == "placing" || rr.Code == http.StatusOK {
+			// Get fresh state
+			rr = ts.request(http.MethodGet, "/api/v1/lobbies/"+lobbyCode+"/game", nil, token)
+			err = json.Unmarshal(rr.Body.Bytes(), &gameResp)
+			require.NoError(t, err)
+
+			if gameResp.State == "placing" {
+				// Host places
+				placeBody := map[string]int{"row": turn / 2, "col": turn % 2}
+				rr = ts.request(http.MethodPost, "/api/v1/lobbies/"+lobbyCode+"/game/place", placeBody, token)
+				assert.Equal(t, http.StatusOK, rr.Code)
+			}
+		}
+	}
+
+	// Verify game completed
+	rr = ts.request(http.MethodGet, "/api/v1/lobbies/"+lobbyCode+"/game", nil, token)
+	// If game is scored, the lobby may have already completed
+	// Either we get a scoring state or game not found
+	if rr.Code == http.StatusOK {
+		err = json.Unmarshal(rr.Body.Bytes(), &gameResp)
+		require.NoError(t, err)
+		assert.Equal(t, "scoring", gameResp.State)
+	}
 }
 
 // Helper functions

@@ -63,6 +63,7 @@ func main() {
 		LobbyController: app.LobbyController,
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
+		BotService:      app.BotService,
 		HubManager:      app.HubManager,
 	})
 
@@ -74,6 +75,7 @@ func main() {
 		GameController:  app.GameController,
 		BoardService:    app.BoardService,
 		ScoringService:  app.ScoringService,
+		BotService:      app.BotService,
 		HubManager:      app.HubManager,
 		StaticDir:       staticDir,
 	})

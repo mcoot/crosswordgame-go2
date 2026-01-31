@@ -10,6 +10,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/api/middleware"
 	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
+	"github.com/mcoot/crosswordgame-go2/internal/services/bot"
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
 	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
@@ -22,6 +23,7 @@ type RouterConfig struct {
 	LobbyController *lobby.Controller
 	GameController  *game.Controller
 	BoardService    *board.Service
+	BotService      *bot.Service
 	HubManager      *sse.HubManager // Optional: for SSE broadcast support
 }
 
@@ -31,8 +33,8 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 	// Create handlers
 	playerHandler := handler.NewPlayerHandler(cfg.AuthService)
-	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.HubManager, cfg.Logger)
-	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.HubManager, cfg.Logger)
+	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.BotService, cfg.HubManager, cfg.Logger)
+	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.BotService, cfg.HubManager, cfg.Logger)
 
 	// Create middleware
 	authMiddleware := middleware.Auth(cfg.AuthService)
@@ -65,6 +67,10 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	lobbies.HandleFunc("/{code}/config", lobbyHandler.UpdateConfig).Methods(http.MethodPatch)
 	lobbies.HandleFunc("/{code}/members/{player_id}/role", lobbyHandler.SetRole).Methods(http.MethodPatch)
 	lobbies.HandleFunc("/{code}/transfer-host", lobbyHandler.TransferHost).Methods(http.MethodPost)
+
+	// Bot routes (all require auth)
+	lobbies.HandleFunc("/{code}/bots", lobbyHandler.AddBot).Methods(http.MethodPost)
+	lobbies.HandleFunc("/{code}/bots/{player_id}", lobbyHandler.RemoveBot).Methods(http.MethodDelete)
 
 	// Game routes (all require auth)
 	lobbies.HandleFunc("/{code}/game", gameHandler.Start).Methods(http.MethodPost)

@@ -28,6 +28,9 @@ var (
 	ErrGameComplete       = errors.New("game is already complete")
 	ErrGameAbandoned      = errors.New("game has been abandoned")
 
+	// Bot errors
+	ErrNotBot = errors.New("player is not a bot")
+
 	// Board errors
 	ErrBoardNotFound = errors.New("board not found")
 

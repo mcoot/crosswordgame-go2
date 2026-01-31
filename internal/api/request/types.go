@@ -48,3 +48,8 @@ type PlaceRequest struct {
 	Row int `json:"row"`
 	Col int `json:"col"`
 }
+
+// AddBotRequest is the request body for adding a bot to a lobby
+type AddBotRequest struct {
+	DisplayName string `json:"display_name,omitempty"`
+}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
+	"github.com/mcoot/crosswordgame-go2/internal/services/bot"
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
 	"github.com/mcoot/crosswordgame-go2/internal/services/scoring"
@@ -24,6 +25,7 @@ type RouterConfig struct {
 	GameController  *game.Controller
 	BoardService    *board.Service
 	ScoringService  *scoring.Service
+	BotService      *bot.Service
 	HubManager      *sse.HubManager
 	StaticDir       string // Path to static files directory
 }
@@ -53,8 +55,8 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	// Create handlers
 	homeHandler := handler.NewHomeHandler()
 	authHandler := handler.NewAuthHandler(cfg.AuthService)
-	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.AuthService, hubManager, cfg.Logger)
-	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.ScoringService, hubManager, cfg.Logger)
+	lobbyHandler := handler.NewLobbyHandler(cfg.LobbyController, cfg.AuthService, cfg.BotService, hubManager, cfg.Logger)
+	gameHandler := handler.NewGameHandler(cfg.LobbyController, cfg.GameController, cfg.BoardService, cfg.ScoringService, cfg.BotService, hubManager, cfg.Logger)
 
 	// Static files
 	if cfg.StaticDir != "" {
@@ -91,6 +93,8 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	protected.HandleFunc("/lobby/{code}/config", lobbyHandler.UpdateConfig).Methods(http.MethodPost)
 	protected.HandleFunc("/lobby/{code}/role", lobbyHandler.SetRole).Methods(http.MethodPost)
 	protected.HandleFunc("/lobby/{code}/transfer-host", lobbyHandler.TransferHost).Methods(http.MethodPost)
+	protected.HandleFunc("/lobby/{code}/bots/add", lobbyHandler.AddBot).Methods(http.MethodPost)
+	protected.HandleFunc("/lobby/{code}/bots/remove", lobbyHandler.RemoveBot).Methods(http.MethodPost)
 	protected.HandleFunc("/lobby/{code}/events", lobbyHandler.Events).Methods(http.MethodGet)
 
 	// Game routes

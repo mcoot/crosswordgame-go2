@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"github.com/mcoot/crosswordgame-go2/internal/api/response"
 	"github.com/mcoot/crosswordgame-go2/internal/model"
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
+	"github.com/mcoot/crosswordgame-go2/internal/services/bot"
 	"github.com/mcoot/crosswordgame-go2/internal/services/game"
 	"github.com/mcoot/crosswordgame-go2/internal/services/lobby"
 	"github.com/mcoot/crosswordgame-go2/internal/web/sse"
@@ -23,6 +25,7 @@ type GameHandler struct {
 	lobbyController *lobby.Controller
 	gameController  *game.Controller
 	boardService    *board.Service
+	botService      *bot.Service
 	hubManager      *sse.HubManager
 	broadcaster     *sse.Broadcaster
 }
@@ -32,6 +35,7 @@ func NewGameHandler(
 	lobbyController *lobby.Controller,
 	gameController *game.Controller,
 	boardService *board.Service,
+	botService *bot.Service,
 	hubManager *sse.HubManager,
 	logger *slog.Logger,
 ) *GameHandler {
@@ -43,6 +47,7 @@ func NewGameHandler(
 		lobbyController: lobbyController,
 		gameController:  gameController,
 		boardService:    boardService,
+		botService:      botService,
 		hubManager:      hubManager,
 		broadcaster:     broadcaster,
 	}
@@ -68,6 +73,9 @@ func (h *GameHandler) Start(w http.ResponseWriter, r *http.Request) {
 	if b := h.getBroadcaster(); b != nil {
 		b.BroadcastGameStarted(code)
 	}
+
+	// Process bot actions after game start
+	h.processBotActions(r.Context(), g.ID, code)
 
 	resp := response.GameStateFromModel(g, nil, nil, nil, "")
 	response.JSON(w, http.StatusCreated, resp)
@@ -186,6 +194,9 @@ func (h *GameHandler) Announce(w http.ResponseWriter, r *http.Request) {
 		b.BroadcastLetterAnnounced(r.Context(), g, code)
 	}
 
+	// Process bot actions after announcement
+	h.processBotActions(r.Context(), *lob.CurrentGame, code)
+
 	resp := response.AnnounceResponse{
 		State:         string(g.State),
 		CurrentLetter: string(g.CurrentLetter),
@@ -280,7 +291,58 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 		_ = h.lobbyController.CompleteGame(r.Context(), code)
 	}
 
+	// Process bot actions after placement (only if game still active)
+	if g.State != model.GameStateScoring && g.State != model.GameStateAbandoned {
+		h.processBotActions(r.Context(), g.ID, code)
+	}
+
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// processBotActions runs bot actions and broadcasts SSE updates
+func (h *GameHandler) processBotActions(ctx context.Context, gameID model.GameID, code model.LobbyCode) {
+	if h.botService == nil {
+		return
+	}
+
+	actions, err := h.botService.ProcessBotActions(ctx, gameID)
+	if err != nil || len(actions) == 0 {
+		return
+	}
+
+	h.broadcastBotActions(ctx, actions, code, gameID)
+}
+
+// broadcastBotActions sends SSE broadcasts for bot actions
+func (h *GameHandler) broadcastBotActions(ctx context.Context, actions []bot.BotAction, code model.LobbyCode, gameID model.GameID) {
+	b := h.getBroadcaster()
+	if b == nil {
+		return
+	}
+
+	for _, action := range actions {
+		switch action.Type {
+		case bot.ActionAnnounce:
+			g, err := h.gameController.GetGame(ctx, gameID)
+			if err == nil {
+				b.BroadcastLetterAnnounced(ctx, g, code)
+			}
+		case bot.ActionPlace:
+			g, err := h.gameController.GetGame(ctx, gameID)
+			if err == nil {
+				b.BroadcastPlacementUpdate(ctx, g, code, action.PlayerID)
+			}
+		case bot.ActionTurnComplete:
+			g, err := h.gameController.GetGame(ctx, gameID)
+			if err == nil {
+				b.BroadcastTurnComplete(ctx, g, code)
+			}
+		case bot.ActionGameComplete:
+			b.BroadcastGameComplete(code)
+			// Complete the game in the lobby
+			_ = h.lobbyController.CompleteGame(ctx, code)
+		}
+	}
 }
 
 // Abandon handles DELETE /api/v1/lobbies/{code}/game
