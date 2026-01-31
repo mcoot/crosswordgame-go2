@@ -7,6 +7,7 @@ import (
 
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/clock"
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/random"
+	"github.com/mcoot/crosswordgame-go2/internal/model"
 	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
 	"github.com/mcoot/crosswordgame-go2/internal/services/board"
 	"github.com/mcoot/crosswordgame-go2/internal/services/bot"
@@ -119,8 +120,10 @@ func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Rand
 	authService := auth.New(store, clk, authCfg, logger)
 	hubManager := sse.NewHubManager(logger)
 
-	botStrategy := bot.NewRandomStrategy(rnd)
-	botService := bot.NewService(store, lobbyController, gameController, boardService, botStrategy, clk, rnd, logger)
+	botStrategies := map[string]bot.Strategy{
+		model.BotStrategyRandom: bot.NewRandomStrategy(rnd),
+	}
+	botService := bot.NewService(store, lobbyController, gameController, boardService, botStrategies, clk, rnd, logger)
 
 	return &App{
 		Storage:           store,

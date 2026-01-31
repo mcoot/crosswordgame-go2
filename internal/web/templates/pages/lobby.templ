@@ -74,6 +74,8 @@ templ Lobby(data LobbyData) {
 				</div>
 
 				if data.IsHost && data.Lobby.State == model.LobbyStateWaiting {
+					@components.BotControls(data.Lobby)
+
 					<div id="lobby-config">
 						@components.LobbyConfig(data.Lobby)
 					</div>

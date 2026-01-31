@@ -50,8 +50,10 @@ func (s *ServiceSuite) SetupTest() {
 	s.gameController = game.NewController(s.store, s.boardService, scoringService, s.mockClock, s.mockRandom, logger)
 	s.lobbyController = lobby.NewController(s.store, s.gameController, s.mockClock, s.mockRandom, logger)
 
-	strategy := bot.NewRandomStrategy(s.mockRandom)
-	s.botService = bot.NewService(s.store, s.lobbyController, s.gameController, s.boardService, strategy, s.mockClock, s.mockRandom, logger)
+	strategies := map[string]bot.Strategy{
+		model.BotStrategyRandom: bot.NewRandomStrategy(s.mockRandom),
+	}
+	s.botService = bot.NewService(s.store, s.lobbyController, s.gameController, s.boardService, strategies, s.mockClock, s.mockRandom, logger)
 }
 
 func (s *ServiceSuite) createPlayer(id, name string) model.Player {
@@ -68,18 +70,20 @@ func (s *ServiceSuite) createPlayer(id, name string) model.Player {
 func (s *ServiceSuite) TestCreateBotPlayer() {
 	s.mockRandom.QueueString("abcdefghijklmnop")
 
-	player, err := s.botService.CreateBotPlayer(s.ctx, "Bot 1")
+	player, err := s.botService.CreateBotPlayer(s.ctx, "Bot 1", model.BotStrategyRandom)
 	s.Require().NoError(err)
 
 	s.Equal("Bot 1", player.DisplayName)
 	s.True(player.IsBot)
 	s.True(player.IsGuest)
+	s.Equal(model.BotStrategyRandom, player.BotStrategy)
 	s.Equal(model.PlayerID("bot-abcdefghijklmnop"), player.ID)
 
 	// Verify saved to storage
 	retrieved, err := s.store.GetPlayer(s.ctx, player.ID)
 	s.Require().NoError(err)
 	s.True(retrieved.IsBot)
+	s.Equal(model.BotStrategyRandom, retrieved.BotStrategy)
 }
 
 func (s *ServiceSuite) TestAddBotToLobby() {
@@ -89,17 +93,28 @@ func (s *ServiceSuite) TestAddBotToLobby() {
 	s.Require().NoError(err)
 
 	s.mockRandom.QueueString("abcdefghijklmnop") // bot player ID
-	botPlayer, err := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	botPlayer, err := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 	s.Require().NoError(err)
 
 	s.Equal("Bot 1", botPlayer.DisplayName)
 	s.True(botPlayer.IsBot)
+	s.Equal(model.BotStrategyRandom, botPlayer.BotStrategy)
 
 	// Verify bot is in lobby
 	updatedLobby, _ := s.lobbyController.GetLobby(s.ctx, lob.Code)
 	s.Len(updatedLobby.Members, 2)
 	s.Equal(botPlayer.ID, updatedLobby.Members[1].Player.ID)
 	s.True(updatedLobby.Members[1].Player.IsBot)
+}
+
+func (s *ServiceSuite) TestAddBotToLobby_InvalidStrategy() {
+	s.mockRandom.QueueString("LOBBY1")
+	host := s.createPlayer("host", "Host")
+	lob, _ := s.lobbyController.CreateLobby(s.ctx, host)
+
+	_, err := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, "nonexistent")
+	s.Error(err)
+	s.Contains(err.Error(), "unknown bot strategy")
 }
 
 func (s *ServiceSuite) TestAddBotToLobby_NotHost() {
@@ -110,7 +125,7 @@ func (s *ServiceSuite) TestAddBotToLobby_NotHost() {
 	nonHost := s.createPlayer("other", "Other")
 	_ = s.lobbyController.JoinLobby(s.ctx, lob.Code, nonHost)
 
-	_, err := s.botService.AddBotToLobby(s.ctx, lob.Code, nonHost.ID)
+	_, err := s.botService.AddBotToLobby(s.ctx, lob.Code, nonHost.ID, model.BotStrategyRandom)
 	s.ErrorIs(err, model.ErrNotHost)
 }
 
@@ -121,7 +136,7 @@ func (s *ServiceSuite) TestAddBotToLobby_GameInProgress() {
 	_ = s.lobbyController.UpdateConfig(s.ctx, lob.Code, host.ID, model.LobbyConfig{GridSize: 2})
 	_, _ = s.lobbyController.StartGame(s.ctx, lob.Code, host.ID)
 
-	_, err := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	_, err := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 	s.ErrorIs(err, model.ErrGameInProgress)
 }
 
@@ -131,12 +146,12 @@ func (s *ServiceSuite) TestAddBotToLobby_SequentialNaming() {
 	lob, _ := s.lobbyController.CreateLobby(s.ctx, host)
 
 	s.mockRandom.QueueString("bot1botid_abcdef")
-	bot1, err := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	bot1, err := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 	s.Require().NoError(err)
 	s.Equal("Bot 1", bot1.DisplayName)
 
 	s.mockRandom.QueueString("bot2botid_abcdef")
-	bot2, err := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	bot2, err := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 	s.Require().NoError(err)
 	s.Equal("Bot 2", bot2.DisplayName)
 }
@@ -147,7 +162,7 @@ func (s *ServiceSuite) TestRemoveBotFromLobby() {
 	lob, _ := s.lobbyController.CreateLobby(s.ctx, host)
 
 	s.mockRandom.QueueString("abcdefghijklmnop")
-	botPlayer, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	botPlayer, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 
 	err := s.botService.RemoveBotFromLobby(s.ctx, lob.Code, host.ID, botPlayer.ID)
 	s.Require().NoError(err)
@@ -174,7 +189,7 @@ func (s *ServiceSuite) TestProcessBotActions_BotAnnounces() {
 	lob, _ := s.lobbyController.CreateLobby(s.ctx, host)
 
 	s.mockRandom.QueueString("abcdefghijklmnop")
-	botPlayer, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	botPlayer, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 
 	_ = s.lobbyController.UpdateConfig(s.ctx, lob.Code, host.ID, model.LobbyConfig{GridSize: 2})
 	g, _ := s.lobbyController.StartGame(s.ctx, lob.Code, host.ID)
@@ -203,7 +218,7 @@ func (s *ServiceSuite) TestProcessBotActions_BotPlaces() {
 	lob, _ := s.lobbyController.CreateLobby(s.ctx, host)
 
 	s.mockRandom.QueueString("abcdefghijklmnop")
-	botPlayer, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	botPlayer, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 
 	_ = s.lobbyController.UpdateConfig(s.ctx, lob.Code, host.ID, model.LobbyConfig{GridSize: 2})
 	g, _ := s.lobbyController.StartGame(s.ctx, lob.Code, host.ID)
@@ -239,7 +254,7 @@ func (s *ServiceSuite) TestProcessBotActions_HumanAnnouncer() {
 	lob, _ := s.lobbyController.CreateLobby(s.ctx, host)
 
 	s.mockRandom.QueueString("abcdefghijklmnop")
-	_, _ = s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	_, _ = s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 
 	_ = s.lobbyController.UpdateConfig(s.ctx, lob.Code, host.ID, model.LobbyConfig{GridSize: 2})
 	g, _ := s.lobbyController.StartGame(s.ctx, lob.Code, host.ID)
@@ -277,10 +292,10 @@ func (s *ServiceSuite) TestProcessBotActions_CascadingTurns() {
 	lob, _ := s.lobbyController.CreateLobby(s.ctx, host)
 
 	s.mockRandom.QueueString("bot1abcdefghijkl")
-	bot1, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	bot1, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 
 	s.mockRandom.QueueString("bot2abcdefghijkl")
-	bot2, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	bot2, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 
 	_ = s.lobbyController.UpdateConfig(s.ctx, lob.Code, host.ID, model.LobbyConfig{GridSize: 2})
 	s.mockRandom.QueueString("GAME01")
@@ -334,7 +349,7 @@ func (s *ServiceSuite) TestProcessBotActions_MixedPlayers() {
 	_ = s.lobbyController.JoinLobby(s.ctx, lob.Code, human2)
 
 	s.mockRandom.QueueString("bot1abcdefghijkl")
-	_, _ = s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID)
+	_, _ = s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
 
 	_ = s.lobbyController.UpdateConfig(s.ctx, lob.Code, host.ID, model.LobbyConfig{GridSize: 2})
 	s.mockRandom.QueueString("GAME01")

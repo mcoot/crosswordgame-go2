@@ -233,7 +233,17 @@ func (h *LobbyHandler) AddBot(w http.ResponseWriter, r *http.Request) {
 	player := middleware.MustGetPlayer(r.Context())
 	code := model.LobbyCode(mux.Vars(r)["code"])
 
-	botPlayer, err := h.botService.AddBotToLobby(r.Context(), code, player.ID)
+	var req request.AddBotRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req = request.AddBotRequest{}
+	}
+
+	strategy := req.Strategy
+	if strategy == "" {
+		strategy = model.BotStrategyRandom
+	}
+
+	botPlayer, err := h.botService.AddBotToLobby(r.Context(), code, player.ID, strategy)
 	if err != nil {
 		WriteError(w, err)
 		return

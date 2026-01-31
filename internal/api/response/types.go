@@ -58,6 +58,7 @@ type LobbyMember struct {
 	Role        string `json:"role"`
 	IsHost      bool   `json:"is_host"`
 	IsBot       bool   `json:"is_bot,omitempty"`
+	BotStrategy string `json:"bot_strategy,omitempty"`
 }
 
 // LobbyMemberFromModel converts model.LobbyMember
@@ -68,6 +69,7 @@ func LobbyMemberFromModel(m model.LobbyMember) LobbyMember {
 		Role:        string(m.Role),
 		IsHost:      m.IsHost,
 		IsBot:       m.Player.IsBot,
+		BotStrategy: m.Player.BotStrategy,
 	}
 }
 

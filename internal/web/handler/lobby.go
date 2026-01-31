@@ -341,7 +341,17 @@ func (h *LobbyHandler) AddBot(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	code := model.LobbyCode(vars["code"])
 
-	_, err := h.botService.AddBotToLobby(r.Context(), code, player.ID)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	strategy := r.FormValue("strategy")
+	if strategy == "" {
+		strategy = model.BotStrategyRandom
+	}
+
+	_, err := h.botService.AddBotToLobby(r.Context(), code, player.ID, strategy)
 	if err != nil {
 		middleware.SetFlash(w, "error", "Could not add bot: "+err.Error())
 		w.Header().Set("HX-Redirect", "/lobby/"+string(code))
@@ -349,11 +359,8 @@ func (h *LobbyHandler) AddBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Broadcast member list update
-	lob, _ := h.lobbyController.GetLobby(r.Context(), code)
-	if lob != nil {
-		h.broadcaster.BroadcastMemberListUpdate(r.Context(), lob)
-	}
+	// Broadcast refresh so host controls render correctly with per-player context
+	h.broadcaster.BroadcastRefresh(code)
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -383,11 +390,8 @@ func (h *LobbyHandler) RemoveBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Broadcast member list update
-	lob, _ := h.lobbyController.GetLobby(r.Context(), code)
-	if lob != nil {
-		h.broadcaster.BroadcastMemberListUpdate(r.Context(), lob)
-	}
+	// Broadcast refresh so host controls render correctly
+	h.broadcaster.BroadcastRefresh(code)
 
 	w.WriteHeader(http.StatusNoContent)
 }

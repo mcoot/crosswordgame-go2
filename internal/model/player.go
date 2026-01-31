@@ -9,8 +9,9 @@ type PlayerID string
 type Player struct {
 	ID          PlayerID
 	DisplayName string
-	IsGuest     bool // true for unregistered players
-	IsBot       bool // true for bot players
+	IsGuest     bool   // true for unregistered players
+	IsBot       bool   // true for bot players
+	BotStrategy string // strategy name for bots (empty for non-bots)
 	CreatedAt   time.Time
 }
 

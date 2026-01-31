@@ -1,0 +1,24 @@
+package components
+
+import "github.com/mcoot/crosswordgame-go2/internal/model"
+
+templ BotControls(lobby *model.Lobby) {
+	<div class="card bot-controls">
+		<h3>Add Bot</h3>
+		<form
+			hx-post={ "/lobby/" + string(lobby.Code) + "/bots/add" }
+			hx-swap="none"
+			class="form-inline"
+		>
+			<div class="form-group">
+				<label for="strategy">Strategy</label>
+				<select name="strategy" id="strategy" class="input">
+					for _, s := range model.ValidBotStrategies() {
+						<option value={ s }>{ model.BotStrategyDisplayName(s) }</option>
+					}
+				</select>
+			</div>
+			<button type="submit" class="btn btn-primary">Add Bot</button>
+		</form>
+	</div>
+}

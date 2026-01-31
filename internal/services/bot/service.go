@@ -47,7 +47,7 @@ type Service struct {
 	lobbyController *lobby.Controller
 	gameController  *game.Controller
 	boardService    *board.Service
-	strategy        Strategy
+	strategies      map[string]Strategy
 	clock           clock.Clock
 	random          random.Random
 	logger          *slog.Logger
@@ -59,7 +59,7 @@ func NewService(
 	lobbyController *lobby.Controller,
 	gameController *game.Controller,
 	boardService *board.Service,
-	strategy Strategy,
+	strategies map[string]Strategy,
 	clk clock.Clock,
 	rnd random.Random,
 	logger *slog.Logger,
@@ -69,7 +69,7 @@ func NewService(
 		lobbyController: lobbyController,
 		gameController:  gameController,
 		boardService:    boardService,
-		strategy:        strategy,
+		strategies:      strategies,
 		clock:           clk,
 		random:          rnd,
 		logger:          logger.With(slog.String("component", "bot-service")),
@@ -77,12 +77,13 @@ func NewService(
 }
 
 // CreateBotPlayer creates a new bot player and saves it to storage
-func (s *Service) CreateBotPlayer(ctx context.Context, displayName string) (*model.Player, error) {
+func (s *Service) CreateBotPlayer(ctx context.Context, displayName string, strategy string) (*model.Player, error) {
 	player := &model.Player{
 		ID:          model.PlayerID("bot-" + s.random.String(PlayerIDLength, PlayerIDAlphabet)),
 		DisplayName: displayName,
 		IsGuest:     true,
 		IsBot:       true,
+		BotStrategy: strategy,
 		CreatedAt:   s.clock.Now(),
 	}
 
@@ -95,7 +96,12 @@ func (s *Service) CreateBotPlayer(ctx context.Context, displayName string) (*mod
 
 // AddBotToLobby creates a bot player and adds it to the lobby
 // Only the lobby host can add bots, and only while in waiting state
-func (s *Service) AddBotToLobby(ctx context.Context, code model.LobbyCode, requestingPlayerID model.PlayerID) (*model.Player, error) {
+func (s *Service) AddBotToLobby(ctx context.Context, code model.LobbyCode, requestingPlayerID model.PlayerID, strategy string) (*model.Player, error) {
+	// Validate strategy
+	if _, ok := s.strategies[strategy]; !ok {
+		return nil, fmt.Errorf("unknown bot strategy: %s", strategy)
+	}
+
 	lob, err := s.lobbyController.GetLobby(ctx, code)
 	if err != nil {
 		return nil, err
@@ -121,7 +127,7 @@ func (s *Service) AddBotToLobby(ctx context.Context, code model.LobbyCode, reque
 	}
 
 	displayName := fmt.Sprintf("Bot %d", botCount+1)
-	bot, err := s.CreateBotPlayer(ctx, displayName)
+	bot, err := s.CreateBotPlayer(ctx, displayName, strategy)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +206,8 @@ func (s *Service) ProcessBotActions(ctx context.Context, gameID model.GameID) ([
 				break // Human's turn to announce
 			}
 
-			letter := s.strategy.ChooseLetter(g)
+			botStrategy := s.strategyForPlayer(announcerPlayer)
+			letter := botStrategy.ChooseLetter(g)
 			if err := s.gameController.AnnounceLetter(ctx, gameID, announcer, letter); err != nil {
 				return actions, err
 			}
@@ -233,7 +240,8 @@ func (s *Service) ProcessBotActions(ctx context.Context, gameID model.GameID) ([
 					return actions, err
 				}
 
-				pos := s.strategy.ChoosePosition(g, playerBoard)
+				botStrategy := s.strategyForPlayer(player)
+				pos := botStrategy.ChoosePosition(g, playerBoard)
 				if err := s.gameController.PlaceLetter(ctx, gameID, pid, pos); err != nil {
 					return actions, err
 				}
@@ -270,4 +278,17 @@ func (s *Service) ProcessBotActions(ctx context.Context, gameID model.GameID) ([
 	}
 
 	return actions, nil
+}
+
+// strategyForPlayer returns the strategy for a bot player, falling back to
+// the first registered strategy if the player's strategy is not found
+func (s *Service) strategyForPlayer(player *model.Player) Strategy {
+	if st, ok := s.strategies[player.BotStrategy]; ok {
+		return st
+	}
+	// Fallback: use first available strategy
+	for _, st := range s.strategies {
+		return st
+	}
+	return nil
 }

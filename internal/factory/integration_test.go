@@ -302,7 +302,7 @@ func (s *IntegrationSuite) TestBotGameFlow() {
 
 	// Add a bot to the lobby
 	s.app.MockRandom.QueueString("botplayer1abcdef")
-	botPlayer, err := s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+	botPlayer, err := s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID, model.BotStrategyRandom)
 	s.Require().NoError(err)
 	s.True(botPlayer.IsBot)
 
@@ -360,10 +360,10 @@ func (s *IntegrationSuite) TestAllBotsGame() {
 	lobby, _ := s.app.LobbyController.CreateLobby(s.ctx, host)
 
 	s.app.MockRandom.QueueString("bot1abcdefghijkl")
-	_, _ = s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+	_, _ = s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID, model.BotStrategyRandom)
 
 	s.app.MockRandom.QueueString("bot2abcdefghijkl")
-	_, _ = s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+	_, _ = s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID, model.BotStrategyRandom)
 
 	_ = s.app.LobbyController.UpdateConfig(s.ctx, lobby.Code, host.ID, model.LobbyConfig{GridSize: 2})
 	s.app.MockRandom.QueueString("GAME01")
@@ -405,7 +405,7 @@ func (s *IntegrationSuite) TestAddRemoveBot() {
 
 	// Add bot
 	s.app.MockRandom.QueueString("bot1abcdefghijkl")
-	botPlayer, err := s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+	botPlayer, err := s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID, model.BotStrategyRandom)
 	s.Require().NoError(err)
 
 	updatedLobby, _ := s.app.LobbyController.GetLobby(s.ctx, lobby.Code)
@@ -426,7 +426,7 @@ func (s *IntegrationSuite) TestBotInLobbyStartsGame() {
 	lobby, _ := s.app.LobbyController.CreateLobby(s.ctx, host)
 
 	s.app.MockRandom.QueueString("bot1abcdefghijkl")
-	botPlayer, _ := s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID)
+	botPlayer, _ := s.app.BotService.AddBotToLobby(s.ctx, lobby.Code, host.ID, model.BotStrategyRandom)
 
 	_ = s.app.LobbyController.UpdateConfig(s.ctx, lobby.Code, host.ID, model.LobbyConfig{GridSize: 2})
 	s.app.MockRandom.QueueString("GAME01")

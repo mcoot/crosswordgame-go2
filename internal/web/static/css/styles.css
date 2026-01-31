@@ -466,6 +466,31 @@ select.input {
   background-color: #dbeafe;
 }
 
+.badge-bot {
+  color: #6b21a8;
+  background-color: #f3e8ff;
+}
+
+.badge-strategy {
+  color: var(--color-text-muted);
+  background-color: var(--color-bg);
+  font-style: italic;
+}
+
+/* Bot controls */
+.bot-controls .form-inline {
+  flex-wrap: wrap;
+}
+
+.bot-controls .form-group {
+  flex: 1;
+  min-width: 120px;
+}
+
+.bot-controls .btn {
+  align-self: flex-end;
+}
+
 /* Game board */
 .game-page {
   display: grid;

@@ -52,4 +52,5 @@ type PlaceRequest struct {
 // AddBotRequest is the request body for adding a bot to a lobby
 type AddBotRequest struct {
 	DisplayName string `json:"display_name,omitempty"`
+	Strategy    string `json:"strategy,omitempty"`
 }
