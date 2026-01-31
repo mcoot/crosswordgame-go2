@@ -175,6 +175,11 @@ tasks:
     cmds:
       - go run ./cmd/server
 
+  filter-wordlist:
+    desc: "Filter words.txt to common English words (usage: task filter-wordlist -- analyze|filter [threshold])"
+    cmds:
+      - .venv/bin/python3 scripts/filter_wordlist.py {{.CLI_ARGS}}
+
   test:e2e:redis:
     desc: Run end-to-end tests with Redis storage
     deps: [redis:start]
