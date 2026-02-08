@@ -339,6 +339,81 @@ func (s *ServiceSuite) TestProcessBotActions_CascadingTurns() {
 	}
 }
 
+func (s *ServiceSuite) TestProcessBotActions_HumanPlacesLast_BotCascade() {
+	// Scenario: 1 human + 2 bots on 3x3 grid.
+	// Host announces, bots place first, then human places last completing the turn.
+	// ProcessBotActions should cascade: bot announces next turn, bots place, etc.
+	// Final state should require human action (either Placing or Announcing).
+	s.mockRandom.QueueString("LOBBY1")
+	host := s.createPlayer("host", "Host")
+	lob, _ := s.lobbyController.CreateLobby(s.ctx, host)
+
+	s.mockRandom.QueueString("bot1abcdefghijkl")
+	bot1, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
+
+	s.mockRandom.QueueString("bot2abcdefghijkl")
+	bot2, _ := s.botService.AddBotToLobby(s.ctx, lob.Code, host.ID, model.BotStrategyRandom)
+
+	_ = s.lobbyController.UpdateConfig(s.ctx, lob.Code, host.ID, model.LobbyConfig{GridSize: 3})
+	s.mockRandom.QueueString("GAME01")
+	g, err := s.lobbyController.StartGame(s.ctx, lob.Code, host.ID)
+	s.Require().NoError(err)
+
+	// Players order: [host, bot1, bot2]. First announcer is host (index 0).
+	s.Equal(host.ID, g.CurrentAnnouncer())
+
+	// Turn 0: Host announces
+	err = s.gameController.AnnounceLetter(s.ctx, g.ID, host.ID, 'A')
+	s.Require().NoError(err)
+
+	// Bots place (via ProcessBotActions for the placing phase only)
+	s.mockRandom.QueueIntn(0) // bot1 picks first empty
+	s.mockRandom.QueueIntn(0) // bot2 picks first empty
+	actions, err := s.botService.ProcessBotActions(s.ctx, g.ID)
+	s.Require().NoError(err)
+	s.Len(actions, 2) // both bots placed
+	s.Equal(bot.ActionPlace, actions[0].Type)
+	s.Equal(bot.ActionPlace, actions[1].Type)
+
+	// Game should still be Placing — human hasn't placed yet
+	g, _ = s.gameController.GetGame(s.ctx, g.ID)
+	s.Equal(model.GameStatePlacing, g.State)
+
+	// Human places last — this completes the turn
+	err = s.gameController.PlaceLetter(s.ctx, g.ID, host.ID, model.Position{Row: 0, Col: 0})
+	s.Require().NoError(err)
+
+	// Now turn advanced, next announcer is bot1 (index 1).
+	// ProcessBotActions should cascade: bot1 announces, bots place, turn completes,
+	// bot2 announces (index 2), bots place, turn completes,
+	// then host (index 0) is announcer again — cascade stops.
+	for range 30 {
+		s.mockRandom.QueueIntn(0) // letters and positions
+	}
+
+	actions, err = s.botService.ProcessBotActions(s.ctx, g.ID)
+	s.Require().NoError(err)
+	s.NotEmpty(actions, "bot cascade should have produced actions")
+
+	// Verify final state: game should be waiting for human action
+	g, _ = s.gameController.GetGame(s.ctx, g.ID)
+	isHumanTurn := (g.State == model.GameStateAnnouncing && g.CurrentAnnouncer() == host.ID) ||
+		(g.State == model.GameStatePlacing && !g.Placements[host.ID])
+	s.True(isHumanTurn, "game should be waiting for human; state=%s turn=%d announcer=%s",
+		g.State, g.CurrentTurn, g.CurrentAnnouncer())
+
+	// Should have advanced past turn 0 (bot1 announced turn 1, bots placed)
+	s.GreaterOrEqual(g.CurrentTurn, 1, "cascade should have advanced past turn 0")
+
+	// All bot actions should reference bot players
+	for _, action := range actions {
+		if action.Type == bot.ActionAnnounce || action.Type == bot.ActionPlace {
+			s.True(action.PlayerID == bot1.ID || action.PlayerID == bot2.ID,
+				"cascade action should be from a bot, got %s", action.PlayerID)
+		}
+	}
+}
+
 func (s *ServiceSuite) TestProcessBotActions_MixedPlayers() {
 	// 2 humans + 1 bot on 2x2 grid
 	s.mockRandom.QueueString("LOBBY1")

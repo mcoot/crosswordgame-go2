@@ -246,6 +246,25 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Track whether the turn advanced before bot processing
+	turnAdvanced := g.State == model.GameStateAnnouncing || g.State == model.GameStateScoring
+
+	// Broadcast placement count (OOB swap, safe during reconnect)
+	if b := h.getBroadcaster(); b != nil {
+		b.BroadcastPlacementUpdate(r.Context(), g, code, player.ID)
+	}
+
+	// Process bot actions BEFORE broadcasting state transitions to avoid
+	// race conditions where clients refresh during SSE reconnect and miss events
+	if g.State != model.GameStateScoring && g.State != model.GameStateAbandoned {
+		h.processBotActions(r.Context(), g.ID, code)
+	}
+
+	// Re-read game state after bot processing
+	if turnAdvanced {
+		g, _ = h.gameController.GetGame(r.Context(), *lob.CurrentGame)
+	}
+
 	resp := response.PlaceResponse{
 		Placed:       true,
 		Board:        response.BoardFromModel(boardObj),
@@ -253,16 +272,17 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 		GameComplete: g.State == model.GameStateScoring,
 	}
 
-	// Broadcast placement update to SSE clients
-	if b := h.getBroadcaster(); b != nil {
-		b.BroadcastPlacementUpdate(r.Context(), g, code, player.ID)
-
-		// Broadcast turn or game completion
-		switch g.State {
-		case model.GameStateAnnouncing:
-			b.BroadcastTurnComplete(r.Context(), g, code)
-		case model.GameStateScoring:
-			b.BroadcastGameComplete(code)
+	// Broadcast final state transition after bot processing
+	if turnAdvanced {
+		if b := h.getBroadcaster(); b != nil {
+			switch g.State {
+			case model.GameStateScoring:
+				b.BroadcastGameComplete(code)
+			case model.GameStatePlacing:
+				b.BroadcastLetterAnnounced(r.Context(), g, code)
+			case model.GameStateAnnouncing:
+				b.BroadcastTurnComplete(r.Context(), g, code)
+			}
 		}
 	}
 
@@ -291,56 +311,43 @@ func (h *GameHandler) Place(w http.ResponseWriter, r *http.Request) {
 		_ = h.lobbyController.CompleteGame(r.Context(), code)
 	}
 
-	// Process bot actions after placement (only if game still active)
-	if g.State != model.GameStateScoring && g.State != model.GameStateAbandoned {
-		h.processBotActions(r.Context(), g.ID, code)
-	}
-
 	response.JSON(w, http.StatusOK, resp)
 }
 
-// processBotActions runs bot actions and broadcasts SSE updates
+// processBotActions runs bot actions and broadcasts only safe OOB-swap events.
+// Full-page-refresh events (letter-announced, turn-complete, game-complete) are
+// suppressed here; the calling handler broadcasts the appropriate event after
+// bot processing completes, avoiding race conditions with SSE reconnection.
 func (h *GameHandler) processBotActions(ctx context.Context, gameID model.GameID, code model.LobbyCode) {
 	if h.botService == nil {
 		return
 	}
 
 	actions, err := h.botService.ProcessBotActions(ctx, gameID)
-	if err != nil || len(actions) == 0 {
+	if err != nil {
+		slog.Error("processBotActions failed",
+			slog.String("game_id", string(gameID)),
+			slog.Any("error", err))
 		return
 	}
 
-	h.broadcastBotActions(ctx, actions, code, gameID)
-}
-
-// broadcastBotActions sends SSE broadcasts for bot actions
-func (h *GameHandler) broadcastBotActions(ctx context.Context, actions []bot.BotAction, code model.LobbyCode, gameID model.GameID) {
 	b := h.getBroadcaster()
 	if b == nil {
 		return
 	}
 
+	// Only broadcast placement updates (OOB swaps) — these are safe during
+	// SSE reconnection since they don't trigger full page refreshes.
 	for _, action := range actions {
-		switch action.Type {
-		case bot.ActionAnnounce:
+		if action.Type == bot.ActionPlace {
 			g, err := h.gameController.GetGame(ctx, gameID)
-			if err == nil {
-				b.BroadcastLetterAnnounced(ctx, g, code)
+			if err != nil {
+				slog.Error("processBotActions: failed to get game for placement broadcast",
+					slog.String("game_id", string(gameID)),
+					slog.Any("error", err))
+				continue
 			}
-		case bot.ActionPlace:
-			g, err := h.gameController.GetGame(ctx, gameID)
-			if err == nil {
-				b.BroadcastPlacementUpdate(ctx, g, code, action.PlayerID)
-			}
-		case bot.ActionTurnComplete:
-			g, err := h.gameController.GetGame(ctx, gameID)
-			if err == nil {
-				b.BroadcastTurnComplete(ctx, g, code)
-			}
-		case bot.ActionGameComplete:
-			b.BroadcastGameComplete(code)
-			// Complete the game in the lobby
-			_ = h.lobbyController.CompleteGame(ctx, code)
+			b.BroadcastPlacementUpdate(ctx, g, code, action.PlayerID)
 		}
 	}
 }
