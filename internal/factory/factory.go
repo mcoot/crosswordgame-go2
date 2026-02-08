@@ -1,11 +1,13 @@
 package factory
 
 import (
+	"context"
 	"errors"
 	"io"
 	"log/slog"
 
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/clock"
+	"github.com/mcoot/crosswordgame-go2/internal/dependencies/llm"
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/random"
 	"github.com/mcoot/crosswordgame-go2/internal/model"
 	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
@@ -63,6 +65,13 @@ type Config struct {
 	StorageType string
 	// RedisConfig holds Redis connection settings (required if StorageType is "redis")
 	RedisConfig *redisstorage.Config
+	// GeminiAPIKey is the API key for the Gemini LLM service (optional)
+	// If empty, the LLM bot strategy will not be available
+	GeminiAPIKey string
+	// GeminiModel is the Gemini model to use (optional, defaults to gemini-2.5-flash-lite)
+	GeminiModel string
+	// LLMDailyCallLimit is the max LLM calls per day (optional, defaults to 5000)
+	LLMDailyCallLimit int
 }
 
 // New creates a new application with all dependencies wired
@@ -106,11 +115,26 @@ func New(cfg Config) (*App, error) {
 		authCfg = auth.DefaultConfig()
 	}
 
-	return newWithDependencies(store, clk, rnd, authCfg, logger), nil
+	// Create LLM client if API key is configured
+	var llmClient llm.Client
+	if cfg.GeminiAPIKey != "" {
+		geminiModel := cfg.GeminiModel
+		if geminiModel == "" {
+			geminiModel = "gemini-2.5-flash-lite"
+		}
+		client, err := llm.NewGeminiClient(context.Background(), cfg.GeminiAPIKey, geminiModel)
+		if err != nil {
+			logger.Error("failed to create Gemini client, LLM strategy will be unavailable", slog.String("error", err.Error()))
+		} else {
+			llmClient = client
+		}
+	}
+
+	return newWithDependencies(store, clk, rnd, authCfg, llmClient, cfg.LLMDailyCallLimit, logger), nil
 }
 
 // newWithDependencies creates an App with the given dependencies (useful for testing)
-func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Random, authCfg auth.Config, logger *slog.Logger) *App {
+func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Random, authCfg auth.Config, llmClient llm.Client, llmDailyLimit int, logger *slog.Logger) *App {
 	// Create services
 	dictService := dictionary.New(store, logger)
 	boardService := board.New(store, logger)
@@ -120,8 +144,12 @@ func newWithDependencies(store storage.Storage, clk clock.Clock, rnd random.Rand
 	authService := auth.New(store, clk, authCfg, logger)
 	hubManager := sse.NewHubManager(logger)
 
+	randomStrategy := bot.NewRandomStrategy(rnd)
 	botStrategies := map[string]bot.Strategy{
-		model.BotStrategyRandom: bot.NewRandomStrategy(rnd),
+		model.BotStrategyRandom: randomStrategy,
+	}
+	if llmClient != nil {
+		botStrategies[model.BotStrategyLLM] = bot.NewLLMStrategy(llmClient, randomStrategy, clk, logger, llmDailyLimit)
 	}
 	botService := bot.NewService(store, lobbyController, gameController, boardService, botStrategies, clk, rnd, logger)
 

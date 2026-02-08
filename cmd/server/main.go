@@ -27,6 +27,8 @@ func main() {
 		DictionaryPath: "data/words.txt",
 		Logger:         logger,
 		StorageType:    os.Getenv("STORAGE_TYPE"),
+		GeminiAPIKey:   os.Getenv("GEMINI_API_KEY"),
+		GeminiModel:    os.Getenv("GEMINI_MODEL"),
 	}
 
 	// Configure Redis if storage type is redis

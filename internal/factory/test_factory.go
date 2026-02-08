@@ -3,6 +3,7 @@ package factory
 import (
 	"time"
 
+	"github.com/mcoot/crosswordgame-go2/internal/dependencies/llm"
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/mocks"
 	"github.com/mcoot/crosswordgame-go2/internal/services/auth"
 	"github.com/mcoot/crosswordgame-go2/internal/storage/memory"
@@ -25,7 +26,23 @@ func NewTestApp() *TestApp {
 	mockRandom := mocks.NewMockRandom()
 	logger := testutil.NopLogger()
 
-	app := newWithDependencies(store, mockClock, mockRandom, auth.DefaultConfig(), logger)
+	app := newWithDependencies(store, mockClock, mockRandom, auth.DefaultConfig(), nil, 0, logger)
+
+	return &TestApp{
+		App:        app,
+		MockClock:  mockClock,
+		MockRandom: mockRandom,
+	}
+}
+
+// NewTestAppWithLLM creates a test App with an LLM client wired in
+func NewTestAppWithLLM(llmClient llm.Client, llmDailyLimit int) *TestApp {
+	store := memory.New()
+	mockClock := mocks.NewMockClock(time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC))
+	mockRandom := mocks.NewMockRandom()
+	logger := testutil.NopLogger()
+
+	app := newWithDependencies(store, mockClock, mockRandom, auth.DefaultConfig(), llmClient, llmDailyLimit, logger)
 
 	return &TestApp{
 		App:        app,

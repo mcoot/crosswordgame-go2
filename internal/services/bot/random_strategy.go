@@ -1,6 +1,8 @@
 package bot
 
 import (
+	"context"
+
 	"github.com/mcoot/crosswordgame-go2/internal/dependencies/random"
 	"github.com/mcoot/crosswordgame-go2/internal/model"
 )
@@ -16,12 +18,12 @@ func NewRandomStrategy(rnd random.Random) *RandomStrategy {
 }
 
 // ChooseLetter returns a random uppercase letter A-Z
-func (s *RandomStrategy) ChooseLetter(game *model.Game) rune {
+func (s *RandomStrategy) ChooseLetter(_ context.Context, game *model.Game) rune {
 	return rune('A' + s.random.Intn(26))
 }
 
 // ChoosePosition picks a random empty cell on the board
-func (s *RandomStrategy) ChoosePosition(game *model.Game, board *model.Board) model.Position {
+func (s *RandomStrategy) ChoosePosition(_ context.Context, game *model.Game, board *model.Board) model.Position {
 	var empty []model.Position
 	for row := 0; row < board.Size; row++ {
 		for col := 0; col < board.Size; col++ {

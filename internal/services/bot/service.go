@@ -207,7 +207,7 @@ func (s *Service) ProcessBotActions(ctx context.Context, gameID model.GameID) ([
 			}
 
 			botStrategy := s.strategyForPlayer(announcerPlayer)
-			letter := botStrategy.ChooseLetter(g)
+			letter := botStrategy.ChooseLetter(ctx, g)
 			if err := s.gameController.AnnounceLetter(ctx, gameID, announcer, letter); err != nil {
 				return actions, err
 			}
@@ -241,7 +241,7 @@ func (s *Service) ProcessBotActions(ctx context.Context, gameID model.GameID) ([
 				}
 
 				botStrategy := s.strategyForPlayer(player)
-				pos := botStrategy.ChoosePosition(g, playerBoard)
+				pos := botStrategy.ChoosePosition(ctx, g, playerBoard)
 				if err := s.gameController.PlaceLetter(ctx, gameID, pid, pos); err != nil {
 					return actions, err
 				}
